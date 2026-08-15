@@ -24,32 +24,28 @@ let onFrame = e => {
         perFrameValidation()
 
         if (!self.production && ERROR) {
-            renderError()
             return
         }
-        try {
-            let changedScreen = currentScreen != previousScreen
-            previousScreen = currentScreen
+        let changedScreen = currentScreen != previousScreen
+        previousScreen = currentScreen
 
-            initCanvasMatrix()
+        initCanvasMatrix()
 
-            // TODO currentScreen frame function array? Or object?
-            // currentScreen = { 1() {...}, 123() {...} }
-            switch (currentScreen) {
-              case SCREEN_DEFAULT: {
-                onFrameDemo(changedScreen)
-                break
-              }
-              case SCREEN_TESTING: {
-                onFrameTesting(changedScreen)
-                break
-              }
-              default: {
-                assert(() => false, "unknown screen " + currentScreen)
-              }
-            }
-        } catch (e) {
-            ERROR = e
+        // TODO currentScreen frame function array? Or object?
+        // currentScreen = { 1() {...}, 123() {...} }
+        switch (currentScreen) {
+          case SCREEN_DEFAULT: {
+            onFrameDemo(changedScreen)
+            break
+          }
+          case SCREEN_TESTING: {
+            onFrameTesting(changedScreen)
+            break
+          }
+          default: {
+            assert(() => false, "unknown screen " + currentScreen)
+            break
+          }
         }
     } catch (e) {
         fatalError(e)
@@ -70,7 +66,6 @@ let canvasSmallSideLength = 0
 let canvasLargeSideLength = 0
 let FONT_HEIGHT = 32
 let FONT_WIDTH = 20
-let ERROR
 let ERROR_LINE_LENGTH = 60
 // where was the last click
 let mouseClick = [0, 0]
@@ -83,6 +78,7 @@ let SCREEN_TESTING = 123
 
 let START = (Date.now() - 1000) / 1000.0 // avoid negative nums: start at 10 seconds
 let TIME = (Date.now() - START) / 1000.0
+let ERROR
 let updateTime = () => TIME = (Date.now() - START) / 1000.0
 let currentScreen = +('' + location).match(/screen=(\d+)/)?.[1] || SCREEN_DEFAULT
 let previousScreen // used to check if changed
@@ -103,24 +99,13 @@ let initCanvasMatrix = () => {
     ctx.scale(canvasSmallSideLength, canvasSmallSideLength)
 }
 let errorFont = 'italic 32px \'Comic Mono\', monospace'
-let renderError = () => {
-    ctx.opacity = 0.5
-    ctx.fillStyle = 'red'
-    ctx.fillRect(0, 0, ...canvasSize)
-    ctx.opacity = 1
-    ctx.fillStyle = 'white'
-    ctx.font = errorFont
-    var lines = errorLines(ERROR)
-    for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], FONT_HEIGHT, (i + 2) * FONT_HEIGHT)
-    }
-}
 let onError = (_, __, ___, ____, e) => {
     if (!self.production) debugger
-    ERROR = e
+    fatalError(e)
     console.error(e)
 }
 let fatalError = (err) => {
+    ERROR = err // stop further frames
     if (!self.production) debugger
     console.error(err)
     var bod = document.body
@@ -175,22 +160,15 @@ let cameraProject = (a) => {
 
     var transformed = matTransformVec(cameraRotation, transformed)
 
-    // project onscreen
-    var transformed = matTransformVec(mat([
-        [  1,   0,   0],
-        [  0,  -1,   0],
-        [  0,   0,  -1],
-    ]), transformed)
-
-    // Perspective divide!
-    transformed[x] /= transformed[z] * FOV
-    transformed[y] /= transformed[z] * FOV
-
-    frameLog('coord' + "''", transformed)
-
-    // Center on the screen!
-    transformed[x] += 0.5
-    transformed[y] += 0.5
+    // - perspective divide: / Z * FOV
+    let perspective = 1 / (-transformed[z] * FOV)
+    // - project onscreen: invert Y and Z
+    // - center on the screen: += 0.5
+    var transformed = [
+        (transformed[x] * perspective) + 0.5,
+        (-transformed[y] * perspective) + 0.5,
+        -transformed[z]
+    ]
 
     return transformed
 }

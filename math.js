@@ -7,6 +7,14 @@ let testMath = () => {
         [1, 2, 3],
         [1, 2, 3]
     ])
+    tform([
+        [1, 2, 3],
+        [
+            [1, 2, 3],
+            [1, 2, 3],
+            [1, 2, 3]
+        ]
+    ])
     assertThrows(() => assertNotNaN(NaN))
     assertThrows(() => assertNotNaN([NaN]))
     assertThrows(() => assertNotNaN([[NaN]]))
@@ -16,6 +24,11 @@ let testMath = () => {
 
     let rotate90deg = mat(matRotateY(TAU * 0.25))
     assertEq(matTransformVec(rotate90deg, vec([0, 0, -1])), vec([1, 0, 0]))
+
+    assertEq(
+        tformTransformVec([[10, 10, 10], rotate90deg], vec([0, 0, -1])),
+        vec([11, 10, 10])
+    )
 }
 let assertEq = (n1, n2) => {
     if (self.production) return
@@ -45,6 +58,7 @@ let assertThrows = (cb) => {
 let isNum = n => typeof n == 'number'
 let isVec = vec => vec.length === 3 && vec.every(isNum)
 let isMat = mat => mat.length === 3 && mat.every(isVec)
+let isTform = tform => tform.length === 2 && isVec(tform[0]) && isMat(tform[1])
 let num = n => {
     if (!self.production && (typeof n !== 'number' || isNaN(n))) {
         assertFail(`${str(n)} is not a num`)
@@ -53,36 +67,51 @@ let num = n => {
 }
 let vec = n => {
     if (!self.production) {
-        for (const vecNum of n) {
-            if (typeof vecNum !== 'number' || isNaN(vecNum)) {
-                assertFail(`${str(vecNum)} is not a vec num`)
+        if (n.length !== 3) assertFail(`${str(n)} is not a vec`)
+        for (let vecNum = 0; vecNum < 3; vecNum++) {
+            if (typeof n[vecNum] !== 'number' || isNaN(n[vecNum])) {
+                assertFail(`${str(n[vecNum])} is not a vec num`)
             }
-        }
-        if (n.length !== 3) {
-            assert(() => n.length === 3, `${str(n)} is not a vec`)
         }
     }
     return n;
 }
 let mat = n => {
     if (!self.production) {
-        for (const row of n) {
-            for (const cell of row) {
-                if (typeof cell !== 'number' || isNaN(cell)) {
-                    assertFail(`${str(cell)} is not a mat cell num`)
+        if (n.length !== 3) assertFail(`${str(n)} is not a mat`)
+        for (let row = 0; row < 3; row++) {
+            if (n[row].length !== 3) assertFail(`${str(n[row])} is not a mat row`)
+            for (let cell = 0; cell < 3; cell++) {
+                if (typeof n[row][cell] !== 'number' || isNaN(n[row][cell])) {
+                    assertFail(`${str(n[row][cell])} is not a mat cell num`)
                 }
             }
-            if (row.length !== 3) {
-                assert(() => row.length === 3, `${str(n)} is not a mat row`)
-            }
-        }
-        if (n.length !== 3) {
-            assert(() => n.length === 3, `${str(n)} is not a mat`)
         }
     }
     return n;
 }
-let shape = n => isNum(n) ? 1 : isVec(n) ? 2 : isMat(n) ? 3 : assertFail('unknown shape for ' + n)
+let tform = n => {
+    if (!self.production) {
+        if (n[0].length !== 3) assertFail(`${str(n[0])} is not a vec`)
+        for (let vecNum = 0; vecNum < 3; vecNum++) {
+            if (typeof n[0][vecNum] !== 'number' || isNaN(n[0][vecNum])) {
+                assertFail(`${str(n[0][vecNum])} is not a vec num`)
+            }
+        }
+
+        if (n[1].length !== 3) assertFail(`${str(n[1])} is not a mat`)
+        for (let row = 0; row < 3; row++) {
+            if (n[1][row].length !== 3) assertFail(`${str(n[1][row])} is not a mat row`)
+            for (let cell = 0; cell < 3; cell++) {
+                if (typeof n[1][row][cell] !== 'number' || isNaN(n[1][row][cell])) {
+                    assertFail(`${str(n[1][row][cell])} is not a mat cell num`)
+                }
+            }
+        }
+    }
+    return n
+}
+let shape = n => isNum(n) ? 1 : isVec(n) ? 2 : isMat(n) ? 3 : isTform(n) ? 4 : assertFail('unknown shape for ' + n)
 let str = n => (
     isNum(n) ? (
         Math.floor(n) !== n && Math.abs(n) < 1000 && String(n).length > 6
@@ -125,6 +154,23 @@ let matTransformVec = (m, v) => {
         vecDotVec(m[z], v),
     ]
 }
+let matMulNum = (m, n) => {
+    mat(m)
+    num(n)
+    return [
+        [m[x][x] * n, m[x][y] * n, m[x][z]],
+        [m[y][x] * n, m[y][y] * n, m[y][z]],
+        [m[z][x] * n, m[z][y] * n, m[z][z]],
+    ]
+}
+let matTransformAndAddVec = (m, v, v2) => {
+    vec(v2)
+    return [
+        vecDotVec(m[x], v) + v2[0],
+        vecDotVec(m[y], v) + v2[1],
+        vecDotVec(m[z], v) + v2[2],
+    ]
+}
 // Transformed dot product
 let matTDotxVec = (m, v) => num(m[x][x] * v[x] + m[y][x] * v[y] + m[z][x] * v[z])
 let matTDotyVec = (m, v) => num(m[x][y] * v[x] + m[y][y] * v[y] + m[z][y] * v[z])
@@ -138,20 +184,6 @@ let matTransformMat = (m1, m2) => {
         [matTDotxVec(m2, m1[1]), matTDotyVec(m2, m1[1]), matTDotzVec(m2, m1[1])],
         [matTDotxVec(m2, m1[2]), matTDotyVec(m2, m1[2]), matTDotzVec(m2, m1[2])],
     ])
-}
-// https://lisyarus.github.io/blog/posts/implementing-a-tiny-cpu-rasterizer-part-4.html#section-3d-transformations
-let mat4Multiply = (m1, m2) => {
-    var ret = mat4Zeroes()
-
-    assert(() => m1.length === ret.length)
-    assert(() => m2.length === ret.length)
-
-    for (let i = 0; i < 4; ++i)
-        for (let j = 0; j < 4; ++j)
-            for (let k = 0; k < 4; ++k)
-                ret[4 * i + j] += m1[4 * i + k] * m2[4 * k + j];
-
-    return ret;
 }
 let matRotateY = (angle) => {
   angle = -num(angle)
@@ -175,18 +207,48 @@ let matRotateX = (angle) => {
         [-0.0,  sin,  cos],
     ]
 }
+let tformTransformVec = (t, v) => {
+    tform(t)
+    return [
+        vecDotVec(t[1][x], v) + t[0][0],
+        vecDotVec(t[1][y], v) + t[0][1],
+        vecDotVec(t[1][z], v) + t[0][2],
+    ]
+}
+let tformTransformTform = (tParent, tChild) => {
+    tform(tParent)
+    tform(tChild)
+
+    // scale/rot the child vec, then add parent
+    let v = matTransformAndAddVec(tParent[1], tChild[0], tParent[0])
+    let m = matTransformMat(tParent[1], tChild[1])
+    return [v, m]
+}
+let tformTranslateByLocalVec = (t, v) => {
+    tform(t)
+    vec(v)
+    v = matTransformAndAddVec(t[1], v, t[0])
+    return [
+        v,
+        t[1]
+    ]
+}
 let unwrapFunction = fn => typeof fn === 'function' ? fn() : fn
 let assertNotNaN = (value) => {
     if (!self.production) {
-        if (typeof value === 'number') {
+        if (value && typeof value === 'object' && value.length === 2) {
+            // tform
+            assertNotNaN(value[0])
+            assertNotNaN(value[1])
+        } else if (typeof value === 'number') {
             if (isNaN(value)) throw new Error('NaN found')
         } else {
-            for (const item of value) {
-                if (typeof item === 'number') {
-                    if (isNaN(item)) throw new Error('NaN found')
+            for (let item = 0; item < 3; item++) {
+                if (typeof value[item] === 'number') {
+                    if (isNaN(value[item])) throw new Error('NaN found')
                 } else {
-                    for (const innerItem of item) {
-                        if (isNaN(innerItem) || typeof innerItem !== 'number') throw new Error('NaN found')
+                    for (let innerItem = 0; innerItem < 3; innerItem++) {
+                        if (isNaN(value[item][innerItem]) || typeof value[item][innerItem] !== 'number') throw new Error('NaN found')
                     }
                 }
             }

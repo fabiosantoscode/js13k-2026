@@ -9,7 +9,7 @@ COMPRESSOR_OPTS=
 if which terser >/dev/null 2>&1; then
     echo 'terser is available'
     COMPRESSOR="terser"
-    COMPRESSOR_OPTS="-mc --module --define self.production=1"
+    COMPRESSOR_OPTS="-mc passes=99 --module --define self.production=1"
 fi
 
 

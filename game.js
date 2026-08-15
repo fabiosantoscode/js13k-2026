@@ -95,12 +95,54 @@ let onFrameTesting = isFirstFrame => {
         ctx.stroke()
     }
 
+    let cubeParent = matRotateY(Math.sin(TIME))
+    cubeParent = [[0, 0, 0], matMulNum(cubeParent, 1.2 + 0.5 * Math.cos(TIME * 2.2))]
+
     // Render a bunch of clouds
     let rng_ = makeRng(123)
-    let rng = () => num((rng_() - 0.5) * 2 * 5)
+    let rng = () => num((rng_() - 0.5) * 2 * 2)
     for (let i = 0; i < 100; i++) {
         var pos = [rng(), rng(), rng()]
-        if (cameraProject(pos)[z] > 0.5) ctx.stroke(assetCloud(pos))
+        if (cameraProject(pos)[z] > 0.5) ctx.stroke(assetCloud(...tformTranslateByLocalVec(cubeParent, pos)))
     }
+
+    let parentTform = transform => tformTransformTform(cubeParent, transform)
+
+    if (cameraProject([0, 0, 0])[z] > 5) {
+        // Render a cube around the clouds
+        ctx.stroke(assetSquare(...parentTform([
+            [0, 0, -7/2],
+            [
+                [7, 0, 0],
+                [0, 7, 0],
+                [0, 0, 7],
+            ]
+        ])))
+        ctx.stroke(assetSquare(...parentTform([
+            [0, 0, 7/2],
+            [
+                [7, 0, 0],
+                [0, 7, 0],
+                [0, 0, 7],
+            ]
+        ])))
+        ctx.stroke(assetSquare(...parentTform([
+            [7/2, 0, 0],
+            [
+                [0, 0, 7],
+                [0, 7, 0],
+                [7, 0, 0],
+            ]
+        ])))
+        ctx.stroke(assetSquare(...parentTform([
+            [-7/2, 0, 0],
+            [
+                [0, 0, 7],
+                [0, 7, 0],
+                [7, 0, 0],
+            ]
+        ])))
+    }
+
 }
 
