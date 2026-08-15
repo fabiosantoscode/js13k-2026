@@ -43,7 +43,7 @@ let onFrame = e => {
             break
           }
           default: {
-            assert(() => false, "unknown screen " + currentScreen)
+            assertFail("unknown screen " + currentScreen)
             break
           }
         }
@@ -129,52 +129,34 @@ let errorLines = (err) => {
         })
     return lines
 }
-let cameraPosition = [0, 0, 0]
-let cameraRotation = matIdentity()
-let cameraRotationInv = matIdentity()
+let cameraTransform = tformIdentity()
+let cameraTransformInv = tformIdentity()
+let setCameraPosition = (v) => {
+    cameraTransform[0] = vec(v)
+    cameraTransformInv[0] = vecMulNum(v, -1)
+}
 let setCameraRotation = (rotationX, rotationY) => {
-    // positionSetter is a callback because movement may depend on rotation
-    cameraRotation = matIdentity()
-    cameraRotation = matTransformMat(cameraRotation, matRotateX(-onFrameTestingCameraRotationX))
-    cameraRotation = matTransformMat(cameraRotation, matRotateY(-onFrameTestingCameraRotation))
+    num(rotationY), num(rotationX)
 
-    cameraRotationInv = matIdentity()
-    cameraRotationInv = matTransformMat(cameraRotationInv, matRotateY(onFrameTestingCameraRotation))
-    cameraRotationInv = matTransformMat(cameraRotationInv, matRotateX(onFrameTestingCameraRotationX))
+    // positionSetter is a callback because movement may depend on rotation
+    cameraTransform[1] = cameraTransformInv[1] = matIdentity()
+
+    cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateY(onFrameTestingCameraRotation))
+    cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateX(onFrameTestingCameraRotationX))
+
+    cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateX(-onFrameTestingCameraRotationX))
+    cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateY(-onFrameTestingCameraRotation))
 }
 let cameraProject2d = (v) => {
-    let [x, y] = cameraProject(v)
-    return [x, y]
+    v = cameraProject(v)
+    return [v[0], v[1]]
 }
 let cameraProject = (a) => {
-    var transformed = vec(a)
-
-    frameLog('cameraPosition', cameraPosition)
-
-    frameLog('coord', transformed)
-
-    var transformed = vecSubVec(transformed, cameraPosition)
-    assertNotNaN(transformed)
-
-    frameLog('coord' + "'", transformed)
-
-    var transformed = matTransformVec(cameraRotation, transformed)
-
-    // - perspective divide: / Z * FOV
-    let perspective = 1 / (-transformed[z] * FOV)
-    // - project onscreen: invert Y and Z
-    // - center on the screen: += 0.5
-    var transformed = [
-        (transformed[x] * perspective) + 0.5,
-        (-transformed[y] * perspective) + 0.5,
-        -transformed[z]
-    ]
-
-    return transformed
+    // var transformed = vecAddVec(transformed, cameraTransformInv[0])
+    // var transformed = matTransformVec(cameraTransformInv[1], transformed)
+    return tformProjectVec(cameraTransformInv, vec(a), FOV)
 }
-let cameraDistance = (v) => {
-    return cameraProject(v)[z]
-}
+let cameraDistance = (v) => tformProjectZVec(cameraTransformInv, v)
 let globalEval = self.eval
 
 let frameKeys

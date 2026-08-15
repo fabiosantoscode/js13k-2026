@@ -1,11 +1,11 @@
 
-let onFrameDemo = () => {
+let onFrameDemo = isFirstFrame => {
+    if (isFirstFrame) {
+        setCameraPosition([0, 2, 10])
+    }
     let orZero = n => +n || 0
     var demoRotation = Math.sin(TIME) * 0.2
     var demoRotationX = Math.sin(TIME * 0.5) * 0.1
-    cameraRotation = matTransformMat(matIdentity(), matRotateY(-demoRotation))
-    cameraRotation = matTransformMat(cameraRotation, matRotateX(-demoRotationX))
-
     setCameraRotation(demoRotationX, demoRotation)
 
     let cameraMovement = vec([
@@ -14,7 +14,7 @@ let onFrameDemo = () => {
         orZero(controls.u) * -1 + orZero(controls.d),
     ])
     cameraMovement = vecMulNum(cameraMovement, 0.2)
-    cameraPosition = vecAddVec(cameraPosition, cameraMovement)
+    setCameraPosition(vecAddVec(cameraTransform[0], cameraMovement))
 
     let rectangle = [
         [-5, -5],
@@ -41,14 +41,14 @@ let onFrameDemo = () => {
     }
 
     // Render a cloud
-    ctx.stroke(assetCloud())
+    if (assetCull(tformIdentity())) ctx.stroke(assetCloud(tformIdentity()))
 }
 
 let onFrameTestingCameraRotation = 0
 let onFrameTestingCameraRotationX = 0
 let onFrameTesting = isFirstFrame => {
     if (isFirstFrame) {
-        cameraPosition = [4, 4, 13]
+        setCameraPosition([4, 4, 13])
         onFrameTestingCameraRotation = -0.05 * TAU
         onFrameTestingCameraRotationX = 0.05 * TAU
     }
@@ -67,9 +67,9 @@ let onFrameTesting = isFirstFrame => {
         0, // orZero(controls.D) * -1 + orZero(controls.U),
         orZero(controls.u) * -1 + orZero(controls.d),
     ])
-    cameraMovement = matTransformVec(cameraRotationInv, cameraMovement)
+    cameraMovement = matTransformVec(cameraTransform[1], cameraMovement)
     cameraMovement = vecMulNum(cameraMovement, 0.2)
-    cameraPosition = vecAddVec(cameraPosition, cameraMovement)
+    setCameraPosition(vecAddVec(cameraTransform[0], cameraMovement))
 
     let rectangle = [
         [-5, -5],
@@ -103,14 +103,14 @@ let onFrameTesting = isFirstFrame => {
     let rng = () => num((rng_() - 0.5) * 2 * 2)
     for (let i = 0; i < 100; i++) {
         var pos = [rng(), rng(), rng()]
-        if (cameraProject(pos)[z] > 0.5) ctx.stroke(assetCloud(...tformTranslateByLocalVec(cubeParent, pos)))
+        if (cameraDistance(pos) > 0.5) ctx.stroke(assetCloud(tformTranslateByLocalVec(cubeParent, pos)))
     }
 
     let parentTform = transform => tformTransformTform(cubeParent, transform)
 
-    if (cameraProject([0, 0, 0])[z] > 5) {
+    if (cameraDistance([0, 0, 0]) > 5) {
         // Render a cube around the clouds
-        ctx.stroke(assetSquare(...parentTform([
+        ctx.stroke(assetSquare(parentTform([
             [0, 0, -7/2],
             [
                 [7, 0, 0],
@@ -118,7 +118,7 @@ let onFrameTesting = isFirstFrame => {
                 [0, 0, 7],
             ]
         ])))
-        ctx.stroke(assetSquare(...parentTform([
+        ctx.stroke(assetSquare(parentTform([
             [0, 0, 7/2],
             [
                 [7, 0, 0],
@@ -126,7 +126,7 @@ let onFrameTesting = isFirstFrame => {
                 [0, 0, 7],
             ]
         ])))
-        ctx.stroke(assetSquare(...parentTform([
+        ctx.stroke(assetSquare(parentTform([
             [7/2, 0, 0],
             [
                 [0, 0, 7],
@@ -134,7 +134,7 @@ let onFrameTesting = isFirstFrame => {
                 [7, 0, 0],
             ]
         ])))
-        ctx.stroke(assetSquare(...parentTform([
+        ctx.stroke(assetSquare(parentTform([
             [-7/2, 0, 0],
             [
                 [0, 0, 7],
