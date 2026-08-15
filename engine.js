@@ -2,9 +2,7 @@
 // initialize game state (s)
 // initialize keys states (u,r,d,l for directions, allKeys for all the keyboard)
 /** @type {CanvasRenderingContext2D} */
-let c=a.getContext`2d`
-let allKeys=[]
-let controls = { /* u, d, l, r, U, D */ }
+let ctx=a.getContext`2d`
 
 let main = () => {
     try {
@@ -30,10 +28,26 @@ let onFrame = e => {
             return
         }
         try {
+            let changedScreen = currentScreen != previousScreen
+            previousScreen = currentScreen
+
             initCanvasMatrix()
 
-            // TODO change screen here
-            onFrameDemo()
+            // TODO currentScreen frame function array? Or object?
+            // currentScreen = { 1() {...}, 123() {...} }
+            switch (currentScreen) {
+              case SCREEN_DEFAULT: {
+                onFrameDemo(changedScreen)
+                break
+              }
+              case SCREEN_TESTING: {
+                onFrameTesting(changedScreen)
+                break
+              }
+              default: {
+                assert(() => false, "unknown screen " + currentScreen)
+              }
+            }
         } catch (e) {
             ERROR = e
         }
@@ -48,9 +62,6 @@ let x = 0
 let y = 1
 let z = 2
 let w = 3
-
-/** @type {CanvasRenderingContext2D} */
-let ctx = c
 let TAU = Math.PI * 2
 let FOV = 0.5
 let canvasSize = [0, 0]
@@ -61,10 +72,20 @@ let FONT_HEIGHT = 32
 let FONT_WIDTH = 20
 let ERROR
 let ERROR_LINE_LENGTH = 60
+// where was the last click
 let mouseClick = [0, 0]
+
+// The game is a big state machine
+let SCREEN_DEFAULT = 1
+let SCREEN_TESTING = 123
+
+// VARIABLES
+
 let START = (Date.now() - 1000) / 1000.0 // avoid negative nums: start at 10 seconds
 let TIME = (Date.now() - START) / 1000.0
 let updateTime = () => TIME = (Date.now() - START) / 1000.0
+let currentScreen = +('' + location).match(/screen=(\d+)/)?.[1] || SCREEN_DEFAULT
+let previousScreen // used to check if changed
 
 let recalculateViewport = () => {
     canvasSize = [a.width = innerWidth, a.height = innerHeight];
@@ -72,45 +93,6 @@ let recalculateViewport = () => {
     canvasLargeSideLength = Math.max(...canvasSize)
     viewportFocusSize = [canvasSmallSideLength, canvasSmallSideLength]
     ERROR_LINE_LENGTH = Math.floor(canvasSize[0] / FONT_WIDTH)
-}
-
-let onFrameDemo = () => {
-    let orZero = n => +n || 0
-    let cameraMovement = vec([
-        orZero(controls.l) * -1 + orZero(controls.r),
-        orZero(controls.D) * -1 + orZero(controls.U),
-        orZero(controls.u) * -1 + orZero(controls.d),
-    ])
-    cameraMovement = vecMulNum(cameraMovement, 0.2)
-
-    cameraPosition = vecAddVec(cameraPosition, cameraMovement)
-
-    let rectangle = [
-        [-5, -5],
-        [ 5, -5],
-        [ 5,  5],
-        [-5,  5],
-        [-5, -5]
-    ]
-    // Render 10 progressively further squares
-    for (let dist = 0; dist < 10; dist++) {
-
-        ctx.lineWidth = 0.005
-        ctx.globalAlpha = 0.5
-        ctx.strokeStyle = 'red'
-
-        // Avoid rendering behind us
-        if (cameraDistance([0, 0, -dist * 10]) < 0.5) continue;
-
-        ctx.moveTo(...cameraProject2d([...rectangle[0], -dist * 10]))
-        for (let i = 1; i < rectangle.length; i++) {
-            ctx.lineTo(...cameraProject2d([...rectangle[i], -dist * 10]))
-        }
-        ctx.stroke()
-    }
-
-    // Render a cloud
-    ctx.stroke(assetCloud())
 }
 
 let initCanvasMatrix = () => {
@@ -163,7 +145,18 @@ let errorLines = (err) => {
     return lines
 }
 let cameraPosition = [0, 0, 0]
-let cameraRotation = TAU * 0
+let cameraRotation = matIdentity()
+let cameraRotationInv = matIdentity()
+let setCameraRotation = (rotationX, rotationY) => {
+    // positionSetter is a callback because movement may depend on rotation
+    cameraRotation = matIdentity()
+    cameraRotation = matTransformMat(cameraRotation, matRotateX(-onFrameTestingCameraRotationX))
+    cameraRotation = matTransformMat(cameraRotation, matRotateY(-onFrameTestingCameraRotation))
+
+    cameraRotationInv = matIdentity()
+    cameraRotationInv = matTransformMat(cameraRotationInv, matRotateY(onFrameTestingCameraRotation))
+    cameraRotationInv = matTransformMat(cameraRotationInv, matRotateX(onFrameTestingCameraRotationX))
+}
 let cameraProject2d = (v) => {
     let [x, y] = cameraProject(v)
     return [x, y]
@@ -180,14 +173,7 @@ let cameraProject = (a) => {
 
     frameLog('coord' + "'", transformed)
 
-    // TODO give control to user
-    var demoRotation = Math.sin(TIME) * 0.2
-    var demoRotationX = Math.sin(TIME * 0.5) * 0.1
-
-    var transformed = matTransformVec(matRotateY(-demoRotation), transformed)
-    frameLog('coordrot', ...transformed)
-    var transformed = matTransformVec(matRotateX(-demoRotationX), transformed)
-    frameLog('coordrot', ...transformed)
+    var transformed = matTransformVec(cameraRotation, transformed)
 
     // project onscreen
     var transformed = matTransformVec(mat([
@@ -230,7 +216,6 @@ let frameLog = self.production
 // (initialize your global variables here)
 
 // update u,l,d,r globals when an arrow key/wasd/zqsd is pressed or released
-// update allKeys[keyCode] if any other key is pressed/released
 let keyCodesToControls = {
     65: 'l',
     87: 'u',
@@ -242,10 +227,27 @@ let keyCodesToControls = {
     39: 'r',
     32: 'U', // Space: UP
     16: 'D', // Shift: DOWN
+    81: 'C', // q: turn counter-clockwise
+    69: 'c', // e: turn clockwise
+}
+let controls = {
+  u: 0,
+  d: 0,
+  l: 0,
+  r: 0,
+  U: 0,
+  D: 0,
+  c: 0,
+  C: 0,
 }
 
 let startLoopAndEvents = () => {
-    onkeydown = onkeyup = e => ((allKeys[e.which] = controls[keyCodesToControls[e.which]] = +!!e.type[5]), e.preventDefault())
+    onkeydown = onkeyup = e => {
+      if (keyCodesToControls[e.which]) {
+        controls[keyCodesToControls[e.which]] = +!!e.type[5]
+        e.preventDefault()
+      }
+    }
 
     // start game loop (60fps)
     // the canvas is cleared and adjusted to fullscreen at each frame

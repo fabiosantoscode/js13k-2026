@@ -29,21 +29,60 @@ let assertEq = (n1, n2) => {
     assert(() => n1.length == n2.length)
     assert(() => n1.every((it, i) => Math.abs(it - n2[i]) < 0.001), () => `${str(n1)} != ${str(n2)}`)
 }
+// LCG deterministic random number generator.
+// https://stackoverflow.com/a/72732727/1011311 (adapted)
+let makeRng = (seed, m = 2**35 - 31, a = 185852, s = seed % m) => {
+    return (max) => (s = s * a % m) / m;
+}
 let assertThrows = (cb) => {
     try {
         cb()
     } catch (e) {
         return
     }
-    assert(() => false, 'callback `' + cb + '` did not throw')
+    assertFail('callback `' + cb + '` did not throw')
 }
 let isNum = n => typeof n == 'number'
 let isVec = vec => vec.length === 3 && vec.every(isNum)
 let isMat = mat => mat.length === 3 && mat.every(isVec)
-let num = n => { if (self.production) return n; assert(() => isNum(n), () => `${str(n)} is not a num`); assertNotNaN(n); return n }
-let vec = n => { if (self.production) return n; assert(() => isVec(n), () => `${str(n)} is not a vec`); assertNotNaN(n); return n }
-let mat = n => { if (self.production) return n; assert(() => isMat(n), () => `${str(n)} is not a mat`); assertNotNaN(n); return n }
-let shape = n => isNum(n) ? 1 : isVec(n) ? 2 : isMat(n) ? 3 : assert(() => false, 'unknown shape for ' + n)
+let num = n => {
+    if (!self.production && (typeof n !== 'number' || isNaN(n))) {
+        assertFail(`${str(n)} is not a num`)
+    }
+    return n;
+}
+let vec = n => {
+    if (!self.production) {
+        for (const vecNum of n) {
+            if (typeof vecNum !== 'number' || isNaN(vecNum)) {
+                assertFail(`${str(vecNum)} is not a vec num`)
+            }
+        }
+        if (n.length !== 3) {
+            assert(() => n.length === 3, `${str(n)} is not a vec`)
+        }
+    }
+    return n;
+}
+let mat = n => {
+    if (!self.production) {
+        for (const row of n) {
+            for (const cell of row) {
+                if (typeof cell !== 'number' || isNaN(cell)) {
+                    assertFail(`${str(cell)} is not a mat cell num`)
+                }
+            }
+            if (row.length !== 3) {
+                assert(() => row.length === 3, `${str(n)} is not a mat row`)
+            }
+        }
+        if (n.length !== 3) {
+            assert(() => n.length === 3, `${str(n)} is not a mat`)
+        }
+    }
+    return n;
+}
+let shape = n => isNum(n) ? 1 : isVec(n) ? 2 : isMat(n) ? 3 : assertFail('unknown shape for ' + n)
 let str = n => (
     isNum(n) ? (
         Math.floor(n) !== n && Math.abs(n) < 1000 && String(n).length > 6
@@ -67,17 +106,10 @@ let vecSubtract = (v1, v2) => {
 let vecNegative = (v1) => {
     return v1.map((v1) => -v1)
 }
-let mat4Zeroes = () => [
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-]
-let mat4Identity = () => [
-    1, 0, 0, 0,
-    0, 1, 0, 0,
-    0, 0, 1, 0,
-    0, 0, 0, 1,
+let matIdentity = () => [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
 ]
 let vecDotVec = (v1, v2) => {
     vec(v1)
@@ -87,20 +119,24 @@ let vecDotVec = (v1, v2) => {
 // Yoinked and ported from Godot
 // https://github.com/godotengine/godot/blob/3defa2466e4f2c767c347f74620ee86b23282902/core/math/basis.h#L274
 let matTransformVec = (m, v) => {
-    return vec([
+    return [
         vecDotVec(m[x], v),
         vecDotVec(m[y], v),
         vecDotVec(m[z], v),
-    ])
+    ]
 }
+// Transformed dot product
+let matTDotxVec = (m, v) => num(m[x][x] * v[x] + m[y][x] * v[y] + m[z][x] * v[z])
+let matTDotyVec = (m, v) => num(m[x][y] * v[x] + m[y][y] * v[y] + m[z][y] * v[z])
+let matTDotzVec = (m, v) => num(m[x][z] * v[x] + m[y][z] * v[y] + m[z][z] * v[z])
 let matTransformMat = (m1, m2) => {
-    todo('not tested or done')
+    // TODO not tested or done
     mat(m1)
     mat(m2)
     return mat([
-        [matTDotx(m2, m1[0]), matTDoty(m2, m1[0]), matTDotz(m2, m1[0])],
-        [matTDotx(m2, m1[1]), matTDoty(m2, m1[1]), matTDotz(m2, m1[1])],
-        [matTDotx(m2, m1[2]), matTDoty(m2, m1[2]), matTDotz(m2, m1[2])],
+        [matTDotxVec(m2, m1[0]), matTDotyVec(m2, m1[0]), matTDotzVec(m2, m1[0])],
+        [matTDotxVec(m2, m1[1]), matTDotyVec(m2, m1[1]), matTDotzVec(m2, m1[1])],
+        [matTDotxVec(m2, m1[2]), matTDotyVec(m2, m1[2]), matTDotzVec(m2, m1[2])],
     ])
 }
 // https://lisyarus.github.io/blog/posts/implementing-a-tiny-cpu-rasterizer-part-4.html#section-3d-transformations
@@ -142,14 +178,28 @@ let matRotateX = (angle) => {
 let unwrapFunction = fn => typeof fn === 'function' ? fn() : fn
 let assertNotNaN = (value) => {
     if (!self.production) {
-        if (Array.isArray(value)) value.forEach(assertNotNaN)
-        else assert(() => typeof value === 'number' && !isNaN(value))
+        if (typeof value === 'number') {
+            if (isNaN(value)) throw new Error('NaN found')
+        } else {
+            for (const item of value) {
+                if (typeof item === 'number') {
+                    if (isNaN(item)) throw new Error('NaN found')
+                } else {
+                    for (const innerItem of item) {
+                        if (isNaN(innerItem) || typeof innerItem !== 'number') throw new Error('NaN found')
+                    }
+                }
+            }
+        }
     }
 }
 let assert = self.production
     ? () => {}
     : (cond, message = 'assertion error') => {
         if (!cond()) {
-            throw new Error(unwrapFunction(message) + ' ' + cond)
+            assertFail(unwrapFunction(message) + ' ' + cond)
         }
     }
+let assertFail = message => {
+    throw new Error(message)
+}
