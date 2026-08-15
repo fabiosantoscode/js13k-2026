@@ -14,8 +14,8 @@ let testMath = () => {
     assertThrows(() => vec([NaN, 1, 1]))
     assertThrows(() => mat([[1, 0, 0], [0, 1, 0], [0, 0, NaN]]))
 
-    let rotate90deg = mat(matRotateZX(TAU * 0.25))
-    assertEq(matTransformVec(rotate90deg, vec([0, 0, 1])), vec([0, -1, 0]))
+    let rotate90deg = mat(matRotateY(TAU * 0.25))
+    assertEq(matTransformVec(rotate90deg, vec([0, 0, -1])), vec([1, 0, 0]))
 }
 let assertEq = (n1, n2) => {
     if (self.production) return
@@ -24,6 +24,10 @@ let assertEq = (n1, n2) => {
     if (shape(n1) !== shape(n2)) {
         throw new Error(`shape mismatch ${str(n1)} ${str(n2)}`)
     }
+    n1 = [n1].flat()
+    n2 = [n2].flat()
+    assert(() => n1.length == n2.length)
+    assert(() => n1.every((it, i) => Math.abs(it - n2[i]) < 0.001), () => `${str(n1)} != ${str(n2)}`)
 }
 let assertThrows = (cb) => {
     try {
@@ -36,9 +40,9 @@ let assertThrows = (cb) => {
 let isNum = n => typeof n == 'number'
 let isVec = vec => vec.length === 3 && vec.every(isNum)
 let isMat = mat => mat.length === 3 && mat.every(isVec)
-let num = n => { if (self.production) return n; assert(() => isNum(n), `${str(n)} is not a num`); assertNotNaN(n); return n }
-let vec = n => { if (self.production) return n; assert(() => isVec(n), `${str(n)} is not a vec`); assertNotNaN(n); return n }
-let mat = n => { if (self.production) return n; assert(() => isMat(n), `${str(n)} is not a mat`); assertNotNaN(n); return n }
+let num = n => { if (self.production) return n; assert(() => isNum(n), () => `${str(n)} is not a num`); assertNotNaN(n); return n }
+let vec = n => { if (self.production) return n; assert(() => isVec(n), () => `${str(n)} is not a vec`); assertNotNaN(n); return n }
+let mat = n => { if (self.production) return n; assert(() => isMat(n), () => `${str(n)} is not a mat`); assertNotNaN(n); return n }
 let shape = n => isNum(n) ? 1 : isVec(n) ? 2 : isMat(n) ? 3 : assert(() => false, 'unknown shape for ' + n)
 let str = n => (
     isNum(n) ? (
@@ -113,8 +117,9 @@ let mat4Multiply = (m1, m2) => {
 
     return ret;
 }
-let matRotateZX = (angle) => {
-    var cos = Math.cos(num(angle))
+let matRotateY = (angle) => {
+  angle = -num(angle)
+    var cos = Math.cos(angle)
     var sin = Math.sin(angle)
 
     return [
@@ -123,7 +128,8 @@ let matRotateZX = (angle) => {
         [-sin,  0.0,  cos],
     ]
 }
-let matRotateYZ = (angle) => {
+let matRotateX = (angle) => {
+  angle = -num(angle)
     var cos = Math.cos(num(angle))
     var sin = Math.sin(angle)
 
@@ -133,48 +139,7 @@ let matRotateYZ = (angle) => {
         [-0.0,  sin,  cos],
     ]
 }
-let mat4RotateZX = (angle) => {
-    var cos = Math.cos(angle)
-    var sin = Math.sin(angle)
-
-    return [
-        cos, 0.0, sin, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        -sin, 0.0, cos, 0.0,
-        0.0, 0.0, 0.0, 1.0,
-    ]
-}
-let mat4Transform = (v, m) => {
-    assert(() => v.length === 4)
-    assert(() => m.length === 16)
-
-    return [
-        (m[0 + 0] * v[0]) + (m[1 + 0] * v[1]) + (m[2 + 0] * v[2]) + (m[3 + 0] * v[3]),
-        (m[0 + 4] * v[0]) + (m[1 + 4] * v[1]) + (m[2 + 4] * v[2]) + (m[3 + 4] * v[3]),
-        (m[0 + 8] * v[0]) + (m[1 + 8] * v[1]) + (m[2 + 8] * v[2]) + (m[3 + 8] * v[3]),
-        (m[0 +12] * v[0]) + (m[1 +12] * v[1]) + (m[2 +12] * v[2]) + (m[3 +12] * v[3]),
-    ]
-}
-let mat4Perspective = (near, far, fovY, aspect_ratio) => {
-    let top = near * Math.tan(fovY / 2.0);
-    let right = top * aspect_ratio;
-
-    return [
-        near / right, 0,          0,                            0,
-        0,            near / top, 0,                            0,
-        0,            0,          -(far + near) / (far - near), -2.0 * far * near / (far - near),
-        0,            0,          -1.0,                         0,
-    ]
-}
-let mat4Translate = (vec) => {
-    assert(() => !vec[3])
-    return [
-        1,  0,  0,  vec[0],
-        0,  1,  0,  vec[1],
-        0,  0,  1,  vec[2],
-        0,  0,  0,  1,
-    ];
-}
+let unwrapFunction = fn => typeof fn === 'function' ? fn() : fn
 let assertNotNaN = (value) => {
     if (!self.production) {
         if (Array.isArray(value)) value.forEach(assertNotNaN)
@@ -185,6 +150,6 @@ let assert = self.production
     ? () => {}
     : (cond, message = 'assertion error') => {
         if (!cond()) {
-            throw new Error(message + ' ' + cond)
+            throw new Error(unwrapFunction(message) + ' ' + cond)
         }
     }

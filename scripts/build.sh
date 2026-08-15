@@ -1,6 +1,6 @@
 #!/bin/bash
 
-FILES="math.js engine.js"
+FILES="math.js assets.js engine.js"
 OUT_FILE="build/index.html"
 
 COMPRESSOR=cat

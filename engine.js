@@ -11,6 +11,7 @@ let main = () => {
         if (!self.production) {
             testMath()
         }
+        prepareAssets()
         startLoopAndEvents()
     } catch (e) {
         fatalError(e)
@@ -50,7 +51,7 @@ let w = 3
 
 /** @type {CanvasRenderingContext2D} */
 let ctx = c
-let TAU = Math.PI
+let TAU = Math.PI * 2
 let FOV = 0.5
 let canvasSize = [0, 0]
 let viewportFocusSize = [0, 0]
@@ -107,6 +108,9 @@ let onFrameDemo = () => {
         }
         ctx.stroke()
     }
+
+    // Render a cloud
+    ctx.stroke(assetCloud())
 }
 
 let initCanvasMatrix = () => {
@@ -165,7 +169,6 @@ let cameraProject2d = (v) => {
     return [x, y]
 }
 let cameraProject = (a) => {
-    if (a.length === 4) a.length = 3 // backwards compat TODO remove
     var transformed = vec(a)
 
     frameLog('cameraPosition', cameraPosition)
@@ -181,17 +184,17 @@ let cameraProject = (a) => {
     var demoRotation = Math.sin(TIME) * 0.2
     var demoRotationX = Math.sin(TIME * 0.5) * 0.1
 
+    var transformed = matTransformVec(matRotateY(-demoRotation), transformed)
+    frameLog('coordrot', ...transformed)
+    var transformed = matTransformVec(matRotateX(-demoRotationX), transformed)
+    frameLog('coordrot', ...transformed)
+
     // project onscreen
     var transformed = matTransformVec(mat([
         [  1,   0,   0],
         [  0,  -1,   0],
         [  0,   0,  -1],
     ]), transformed)
-
-    var transformed = matTransformVec(matRotateZX(demoRotation), transformed)
-    frameLog('coordrot', ...transformed)
-    var transformed = matTransformVec(matRotateYZ(demoRotation), transformed)
-    frameLog('coordrot', ...transformed)
 
     // Perspective divide!
     transformed[x] /= transformed[z] * FOV
@@ -208,6 +211,7 @@ let cameraProject = (a) => {
 let cameraDistance = (v) => {
     return cameraProject(v)[z]
 }
+let globalEval = self.eval
 
 let frameKeys
 let frameLogY = 0
@@ -237,7 +241,7 @@ let keyCodesToControls = {
     40: 'd',
     39: 'r',
     32: 'U', // Space: UP
-    17: 'D', // Shift: DOWN
+    16: 'D', // Shift: DOWN
 }
 
 let startLoopAndEvents = () => {
