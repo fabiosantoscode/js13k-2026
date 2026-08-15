@@ -157,6 +157,9 @@ let cameraProject = (a) => {
     return tformProjectVec(cameraTransformInv, vec(a), FOV)
 }
 let cameraDistance = (v) => tformProjectZVec(cameraTransformInv, v)
+let cameraProjectAsset2d = (assetT, pointV) => {
+    return tformProjectAssetVec(tform(cameraTransformInv), tform(assetT), vec(pointV), FOV)
+}
 let globalEval = self.eval
 
 let frameKeys

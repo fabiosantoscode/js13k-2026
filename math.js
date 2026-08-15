@@ -152,6 +152,7 @@ let vecDotVec = (v1, v2) => {
     return num(vecDotVecUnchecked(v1, v2))
 }
 let vecDotVecUnchecked = (v1, v2) => (v1[x] * v2[x]) + (v1[y] * v2[y]) + (v1[z] * v2[z])
+let vecDotVec2Unchecked = (v1, v2) => (v1[x] * v2[x]) + (v1[y] * v2[y])
 // Yoinked and ported from Godot
 // https://github.com/godotengine/godot/blob/3defa2466e4f2c767c347f74620ee86b23282902/core/math/basis.h#L274
 let matTransformVec = (m, v) => {
@@ -251,6 +252,28 @@ let tformProjectVec = (t, v, fov) => {
         num(vecDotVecUnchecked(t[1][x], v) * perspective + 0.5),
         num(-vecDotVecUnchecked(t[1][y], v) * perspective + 0.5),
         distance
+    ]
+}
+/* Project each point of an asset with knowledge that
+ *  assets are flat (Z is zero)
+ *  point arrays are constructed in the asset code (ok to mutate)
+ *  we want 2d points
+ **/
+let tformProjectAssetVec = (t, assetT, v, fov) => {
+    v = [
+        vecDotVecUnchecked(assetT[1][x], v) + assetT[0][0] + t[0][x],
+        vecDotVecUnchecked(assetT[1][y], v) + assetT[0][1] + t[0][y],
+        vecDotVec2Unchecked(assetT[1][z], v) + assetT[0][2] + t[0][z],
+    ]
+
+    // Do z first because is necessary for perspective
+    let distance = -vecDotVecUnchecked(t[1][z], v)
+    let perspective = distance && 1 / (distance * fov)
+    // same as mat transform but we'll negate y for DOM canvas
+    // and we add 0.5 to center on the screen
+    return [
+        num(vecDotVecUnchecked(t[1][x], v) * perspective + 0.5),
+        num(-vecDotVecUnchecked(t[1][y], v) * perspective + 0.5),
     ]
 }
 let tformProjectZVec = (t, v, fov) => {
