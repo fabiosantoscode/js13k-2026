@@ -4,53 +4,37 @@
 /** @type {CanvasRenderingContext2D} */
 let ctx=a.getContext`2d`
 
-let main = () => {
-    try {
-        if (!self.production) {
-            testMath()
-        }
-        prepareAssets()
-        startLoopAndEvents()
-    } catch (e) {
-        fatalError(e)
+let main = () => errorReported(() => {
+    if (!self.production) {
+        testMath()
     }
-}
+    prepareAssets()
+    startLoopAndEvents()
+})
 
-let onFrame = e => {
-    try {
-        frameLogReset()
-        recalculateViewport()
-        updateTime()
-        perFrameValidation()
-
-        if (!self.production && ERROR) {
-            return
-        }
-        let changedScreen = currentScreen != previousScreen
-        previousScreen = currentScreen
-
-        initCanvasMatrix()
-
-        // TODO currentScreen frame function array? Or object?
-        // currentScreen = { 1() {...}, 123() {...} }
-        switch (currentScreen) {
-          case SCREEN_DEFAULT: {
-            onFrameDemo(changedScreen)
-            break
-          }
-          case SCREEN_TESTING: {
-            onFrameTesting(changedScreen)
-            break
-          }
-          default: {
-            assertFail("unknown screen " + currentScreen)
-            break
-          }
-        }
-    } catch (e) {
-        fatalError(e)
+let onFrame = tmp => errorReported(() => {
+    if (!self.production && ERROR) {
+        return
     }
-}
+    frameLogReset()
+    recalculateViewport()
+    updateTime()
+    perFrameValidation()
+    initCanvasMatrix()
+
+    tmp = ({
+        [SCREEN_DEFAULT]:onFrameDemo,
+        [SCREEN_TESTING]:onFrameTesting,
+        [SCREEN_SPACE_GAME]:onFrameSpaceGame,
+    })[currentScreen]
+
+    if (!self.production && !tmp) {
+        assertFail('unknown screen ' + currentScreen)
+    }
+
+    tmp(currentScreen != previousScreen)
+    previousScreen = currentScreen
+})
 
 // CONSTANTS
 // Vector keys
@@ -64,6 +48,7 @@ let canvasSize = [0, 0]
 let viewportFocusSize = [0, 0]
 let canvasSmallSideLength = 0
 let canvasLargeSideLength = 0
+let canvasPixelWidth = 0
 let FONT_HEIGHT = 32
 let FONT_WIDTH = 20
 let ERROR_LINE_LENGTH = 60
@@ -72,6 +57,7 @@ let mouseClick = [0, 0]
 
 // The game is a big state machine
 let SCREEN_DEFAULT = 1
+let SCREEN_SPACE_GAME = 51
 let SCREEN_TESTING = 123
 
 // VARIABLES
@@ -81,12 +67,14 @@ let TIME = (Date.now() - START) / 1000.0
 let ERROR
 let updateTime = () => TIME = (Date.now() - START) / 1000.0
 let currentScreen = +('' + location).match(/screen=(\d+)/)?.[1] || SCREEN_DEFAULT
+let cheatsOn = +('' + location).match(/cheats=(\d+)/)?.[1]
 let previousScreen // used to check if changed
 
 let recalculateViewport = () => {
     canvasSize = [a.width = innerWidth, a.height = innerHeight];
     canvasSmallSideLength = Math.min(...canvasSize)
     canvasLargeSideLength = Math.max(...canvasSize)
+    canvasPixelWidth = 1 / canvasSmallSideLength
     viewportFocusSize = [canvasSmallSideLength, canvasSmallSideLength]
     ERROR_LINE_LENGTH = Math.floor(canvasSize[0] / FONT_WIDTH)
 }
@@ -98,7 +86,9 @@ let initCanvasMatrix = () => {
     else ctx.translate((canvasLargeSideLength - canvasSmallSideLength) / 2, 0)
     ctx.scale(canvasSmallSideLength, canvasSmallSideLength)
 }
-let errorFont = 'italic 32px \'Comic Mono\', monospace'
+let errorFont = '32px monospace'
+let screenFont = '0.05px monospace'
+let screenFontHeight = 0.025
 let onError = (_, __, ___, ____, e) => {
     if (!self.production) debugger
     fatalError(e)
@@ -145,20 +135,21 @@ let setCameraRotation = (rotationX, rotationY) => {
     cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateX(onFrameTestingCameraRotationX))
 
     cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateX(-onFrameTestingCameraRotationX))
-    cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateY(-onFrameTestingCameraRotation))
+    return cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateY(-onFrameTestingCameraRotation))
 }
-let cameraProject2d = (v) => {
-    v = cameraProject(v)
-    return [v[0], v[1]]
+let setCameraRotation2 = (rotation) => {
+    mat(rotation)
+    // positionSetter is a callback because movement may depend on rotation
+    cameraTransform[1] = matTransformMat(cameraTransform[1], rotation)
+
+    cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matInvert(rotation))
 }
-let cameraProject = (a) => {
-    // var transformed = vecAddVec(transformed, cameraTransformInv[0])
-    // var transformed = matTransformVec(cameraTransformInv[1], transformed)
-    return tformProjectVec(cameraTransformInv, vec(a), FOV)
+let cameraProject2d = v => {
+    return tformProjectVec(cameraTransformInv, vec(v), FOV)
 }
 let cameraDistance = (v) => tformProjectZVec(cameraTransformInv, v)
-let cameraProjectAsset2d = (assetT, pointV) => {
-    return tformProjectAssetVec(tform(cameraTransformInv), tform(assetT), vec(pointV), FOV)
+let cameraProjectRadiusAtDistance = (distance, radius) => {
+    return radius / (distance * FOV)
 }
 let globalEval = self.eval
 
@@ -172,7 +163,8 @@ let frameLog = self.production
     : (key, ...message) => {
         if (frameKeys[key]) return; else frameKeys[key] = true
 
-        ctx.font = '0.05px red sans-serif'
+        ctx.fillStyle = 'white'
+        ctx.font = screenFont
         ctx.fillText(key + ': ' + message.map(str).join(" "), 0, 0.1 + (frameLogY += 0.1))
     }
 
@@ -180,29 +172,26 @@ let frameLog = self.production
 
 // update u,l,d,r globals when an arrow key/wasd/zqsd is pressed or released
 let keyCodesToControls = {
+    // wasd keys
     65: 'l',
     87: 'u',
     83: 'd',
     68: 'r',
-    37: 'l',
-    38: 'u',
-    40: 'd',
-    39: 'r',
-    32: 'U', // Space: UP
-    16: 'D', // Shift: DOWN
-    81: 'C', // q: turn counter-clockwise
-    69: 'c', // e: turn clockwise
+    // q,e: up/down
+    81: 'U',
+    69: 'D',
+    // arrow keys
+    38: 'P', // arrow up, pitch down
+    40: 'p', // arrow down, pitch up
+    37: 'C', // arrow left turn counter-clockwise
+    39: 'c', // arrow right turn clockwise
+    // roll (Screw): Z and C
+    90: 's',
+    67: 'S',
+    32: 'B', // space: brake
+    16: 'b', // shift: release "babeety"
 }
-let controls = {
-  u: 0,
-  d: 0,
-  l: 0,
-  r: 0,
-  U: 0,
-  D: 0,
-  c: 0,
-  C: 0,
-}
+let controls = {}
 
 let startLoopAndEvents = () => {
     onkeydown = onkeyup = e => {
@@ -229,6 +218,8 @@ let startLoopAndEvents = () => {
         onerror = onError
     }
 }
+
+let errorReported = cb=>{try{cb()}catch(e){fatalError(e)}}
 
 let perFrameValidation = () => {
     assert(() => x === 0)
