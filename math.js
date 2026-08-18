@@ -24,7 +24,7 @@ let testMath = () => {
     assertThrows(() => mat([[1, 0, 0], [0, 1, 0], [0, 0, NaN]]))
     /**/
 
-    let rotate90deg = mat(matRotateY(TAU * 0.25))
+    let rotate90deg = mat(matRotateY(-TAU * 0.25))
     assertEq(matTransformVec(rotate90deg, vec([0, 0, -1])), vec([1, 0, 0]))
 
     assertEq(
@@ -67,6 +67,11 @@ let testMath = () => {
 
     let rotateNothing = quatTransformQuat(rotate90deg3, quatFromAxisAngle([0, -1, 0], -TAU * 0.25))
     assertEq(quatTransformVec(rotateNothing, [0, 0, -1]), [0, 0, -1])
+
+    // matrix by angle tests
+    assertEq(matRotateX(0.5), matFromAxisAngle([1, 0, 0], 0.5))
+    assertEq(matRotateY(0.5), matFromAxisAngle([0, 1, 0], 0.5))
+    assertEq(matRotateZ(0.5), matFromAxisAngle([0, 0, 1], 0.5))
 }
 let assertEq = (n1, n2) => {
     if (self.production) return
@@ -328,24 +333,9 @@ let matTransformMat = (m1, m2) => {
     mat(m2)
     return mat(mapI3(row => mapI3(col => matTDotAxisVec(m2, m1[row], col))))
 }
-let matRotateY = (angle) => {
-    numSinCos(-angle)
-
-    return [
-        [ cos,  0.0,  sin],
-        [ 0.0,  1.0,  0.0],
-        [-sin,  0.0,  cos],
-    ]
-}
-let matRotateX = (angle) => {
-    numSinCos(-angle)
-
-    return [
-        [ 1.0,  0.0,  0.0],
-        [ 0.0,  cos, -sin],
-        [-0.0,  sin,  cos],
-    ]
-}
+let matRotateY = (angle) => matFromAxisAngle([0, 1, 0], angle)
+let matRotateX = (angle) => matFromAxisAngle([1, 0, 0], angle)
+let matRotateZ = angle => matFromAxisAngle([0,0,1], angle)
 let matScaled = S => matMulNum(matIdentity(), S)
 let matLerp = (l, r, weight) => mapI3(row => vecLerp(l[row], r[row], weight))
 // https://github.com/godotengine/godot/blob/89cea143987d564363e15d207438530651d943ac/core/math/basis.cpp#L840
@@ -553,4 +543,11 @@ let assert = self.production
     }
 let assertFail = message => {
     throw new Error(message)
+}
+let tryCatch = (try_, catch_ = str /* str is an okay no-op */) => {
+    try {
+        return try_(try_)
+    } catch (try_) {
+        return catch_(try_)
+    }
 }

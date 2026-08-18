@@ -171,17 +171,15 @@ let undeferRenderCommands = () => {
     })
 }
 
+// Some of these are initialized in story.js :D
 let spaceGameInertia
 let spaceGameRotationInertia
 let spaceGamePlanets
 let spaceGameStars
 let onFrameSpaceGame = isFirstFrame => {
     if (isFirstFrame) {
-        setCameraPosition([3, 100, 1000])
-        spaceGameInertia = vecZero()
-        spaceGameRotationInertia = matIdentity()
-        //spaceGameRotationInertia = matFromAxisAngle([0,0,1], 0.001)
         spaceGamePlanets = initPlanets()
+        // Start behind planet fishy
         spaceGameStars = initStars()
         updateRenderUnicorns = initUpdateRenderUnicorns()
     }
@@ -189,17 +187,26 @@ let onFrameSpaceGame = isFirstFrame => {
     ctx.fillStyle = '#111'
     ctx.fillRect(-10, -10, 100, 100)
 
+    if (advanceStory()) {
+        // When advanceStory() returns truthy it means it rendered the frame already
+        // Nothing to do
+        return
+    }
+
     ctx.lineWidth = 0.005
     ctx.globalAlpha = 0.5
     ctx.strokeStyle = 'red'
 
     spaceGameInertia = updateSpaceInertia(spaceGameInertia)
+    frameLog('spaceGameInertia', spaceGameInertia)
     updateControls()
     updateRenderStars()
     updateRenderPlanets()
     updateRenderUnicorns()
 
     undeferRenderCommands()
+
+    updateRenderLanding()
 }
 
 let starDistance = 100_000
@@ -229,6 +236,7 @@ let updateRenderStars = () => (
 let planetTransform = 0
 let planetColor = 1
 let planetName = 2
+let planetFishy
 let initPlanets = () => [
     [
         tform([
@@ -237,14 +245,6 @@ let initPlanets = () => [
         ]),
         '#ff8c00',
         'sun',
-    ],
-    [
-        tform([
-            [ 4430, 443, -4920 ],
-            matScaled(99),
-        ]),
-        "#ffffff",
-        "fishy"
     ],
     [
         tform([
@@ -309,8 +309,19 @@ let initPlanets = () => [
         ]),
         '#ffff93',
         "no"
-    ]
-].map(([t,...rest]) => [[vecMulNum(t[0], 0.4), t[1]],...rest])
+    ],
+    planetFishy = [
+        tform([
+            [ 4430, 443, -4920 ],
+            matScaled(99),
+        ]),
+        "#ffffff",
+        "fishy"
+    ],
+].map(planet => (
+    (planet[planetTransform][0] = vecMulNum(planet[planetTransform][0], 0.4)),
+    planet
+))
 
 
 let updateRenderPlanets = () => spaceGamePlanets
@@ -323,7 +334,7 @@ let updateRenderPlanets = () => spaceGamePlanets
             let planetSize = vecLength(planetTform[1][x])
             let planetScreenRadius = cameraProjectRadiusAtDistance(distance, planetSize) / 2
 
-            if (distance < 5000) {
+            if (distance < 3000) {
                 ctx.fillStyle = '#fff'
                 ctx.font = screenFont
                 ctx.fillText((name == 'sun' ? ' The ' : ' Planet ') + name, ...cameraProject2d(planetTform[0]).map((coord, i) => coord + (i ? screenFontHeight/2 : planetScreenRadius)))
@@ -342,20 +353,21 @@ let updateRenderPlanets = () => spaceGamePlanets
     )
 
 
-let updateSpaceInertia = inertia => spaceGamePlanets.reduce((inertia, [planetTform]) => {
+let updateSpaceInertia = inertia => spaceGamePlanets.reduce((inertia, [planetTform, _planetColor, planetName]) => {
     // Let's gravitate towards the sun
     let planetPosition = vec(planetTform[0])
     let planetDistance = vecDistance(cameraTransform[0], planetPosition)
     let planetSize = vecLength(planetTform[1][x])
 
     // Gravity scale: 1000
-    planetDistance = planetDistance / 10000
+    planetDistance = planetDistance / 3000
 
     if (planetDistance < 1) {
         let planetMass = (planetSize / 1000000)
-        var intensity = ((1 - planetDistance) ** 2) * planetMass
-        var vecToward = vecNormalize(vecSubVec(planetPosition, cameraTransform[0]))
+        var intensity = Math.sqrt((1 - planetDistance)) * planetMass
+        var vecToward = vecNormalize(vecSubVec(cameraTransform[0], planetPosition))
         var gravityToward = vecMulNum(vecToward, intensity)
+        frameLog(planetName, 'close to planet', intensity)
         return vecAddVec(inertia, gravityToward)
     }
     return inertia
@@ -427,4 +439,21 @@ let initUpdateRenderUnicorns = () => {
             ctx.fill(assetUnicornEyesMouth(transform))
         })
     }
+}
+
+let speedTooFastToLand = 1
+let updateRenderLanding = () => {
+    let speed = vecLength(spaceGameInertia)
+    let message
+
+    frameLog('speed', speed)
+    if (speed > speedTooFastToLand) {
+        message = 'too fast to land safely'
+    }
+    if (message) {
+        frameLog('autopilot', message)
+    }
+    frameLog('closest planet', spaceGamePlanets.toSorted((a, b) => (
+        vecDistance(a[planetTransform][0], b[planetTransform][0])
+    ))[0][planetName])
 }

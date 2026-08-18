@@ -4,15 +4,15 @@
 /** @type {CanvasRenderingContext2D} */
 let ctx=a.getContext`2d`
 
-let main = () => errorReported(() => {
+let main = () => tryCatch(() => {
     if (!self.production) {
         testMath()
     }
     prepareAssets()
     startLoopAndEvents()
-})
+}, fatalError)
 
-let onFrame = tmp => errorReported(() => {
+let onFrame = tmp => tryCatch(() => {
     if (!self.production && ERROR) {
         return
     }
@@ -34,7 +34,7 @@ let onFrame = tmp => errorReported(() => {
 
     tmp(currentScreen != previousScreen)
     previousScreen = currentScreen
-})
+}, fatalError)
 
 // CONSTANTS
 // Vector keys
@@ -104,20 +104,9 @@ let fatalError = (err) => {
     bod.innerText = errorLines(err).join('\n')
 }
 let errorLines = (err) => {
-    var lines = (err.toString() + '\n' + err.stack)
-        .split(/\n/g)
-    if (lines[0]?.trim() === lines[1]?.trim()) lines.shift()
-    lines = lines
-        .flatMap(line => {
-            var out = []
-            while (line.length > ERROR_LINE_LENGTH) {
-                out.push(line.slice(0, ERROR_LINE_LENGTH) + '\n')
-                line = line.slice(ERROR_LINE_LENGTH)
-            }
-            if (line.length) out.push(line)
-            return out
-        })
-    return lines
+    err = (err + '\n' + err.stack).split(/\n/g)
+    if (err[0]?.trim() === err[1]?.trim()) return err.slice(1)
+    else return err
 }
 let cameraTransform = tformIdentity()
 let cameraTransformInv = tformIdentity()
@@ -131,11 +120,11 @@ let setCameraRotation = (rotationX, rotationY) => {
     // positionSetter is a callback because movement may depend on rotation
     cameraTransform[1] = cameraTransformInv[1] = matIdentity()
 
-    cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateY(onFrameTestingCameraRotation))
-    cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateX(onFrameTestingCameraRotationX))
+    cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateY(-onFrameTestingCameraRotation))
+    cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateX(-onFrameTestingCameraRotationX))
 
-    cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateX(-onFrameTestingCameraRotationX))
-    return cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateY(-onFrameTestingCameraRotation))
+    cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateX(onFrameTestingCameraRotationX))
+    return cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateY(onFrameTestingCameraRotation))
 }
 let setCameraRotation2 = (rotation) => {
     mat(rotation)
@@ -163,11 +152,15 @@ let frameLog = self.production
     : (key, ...message) => {
         if (frameKeys[key]) return; else frameKeys[key] = true
 
-        ctx.fillStyle = 'white'
-        ctx.font = screenFont
-        ctx.fillText(key + ': ' + message.map(str).join(" "), 0, 0.1 + (frameLogY += 0.1))
+        drawText(key + ': ' + message.map(str).join(" "), 0, 0.1 + (frameLogY += 0.1))
     }
-
+let drawText = (words, x, y) => {
+    ctx.fillStyle = '#fff'
+    ctx.font = screenFont
+    words.split('\n').map((word, i) => {
+        ctx.fillText(word, x, y + (0.1 * i))
+    })
+}
 // (initialize your global variables here)
 
 // update u,l,d,r globals when an arrow key/wasd/zqsd is pressed or released
@@ -218,8 +211,6 @@ let startLoopAndEvents = () => {
         onerror = onError
     }
 }
-
-let errorReported = cb=>{try{cb()}catch(e){fatalError(e)}}
 
 let perFrameValidation = () => {
     assert(() => x === 0)
