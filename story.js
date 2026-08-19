@@ -35,7 +35,6 @@ let story = [
     ],
 ]
 let storyState // undefined means we just booted
-// TODO STORY_STATE_MENU
 let STORY_STATE_INITIAL
 let STORY_STATE_WORDS = 1
 let STORY_STATE_START_GAME = 2

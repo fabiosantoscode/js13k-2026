@@ -1,3 +1,11 @@
+// Putting assert before anything else makes Terser inline it more confidently
+let assert = self.production
+    ? () => {}
+    : (cond, message = 'assertion error') => {
+        if (!cond()) {
+            assertFail(unwrapFunction(message) + ' ' + cond)
+        }
+    }
 
 let testMath = () => {
     num(1)
@@ -535,13 +543,6 @@ let assertNotNaN = (value) => {
         }
     }
 }
-let assert = self.production
-    ? () => {}
-    : (cond, message = 'assertion error') => {
-        if (!cond()) {
-            assertFail(unwrapFunction(message) + ' ' + cond)
-        }
-    }
 let assertFail = message => {
     throw new Error(message)
 }
