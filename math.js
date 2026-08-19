@@ -170,11 +170,12 @@ let str = n => (
             ? Math.round(n * 1000) / 1000
             : n
     )
+    : !n ? n
     : isVec(n) ? `vec([${n.map(str)}])`
     : isMat(n) ? `mat([${n.map(n => `[${n.map(str)}]`)}])`
     : isTform(n) ? `tform([${str(n[0])}, ${str(n[1])}])`
     : isQuat(n) ? `quat([${n.map(str)}])`
-    : n.every ? `[${n}]`
+    : n.map ? `[${n}]`
     : n
 ) + ''
 let sin

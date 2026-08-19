@@ -12,28 +12,38 @@ let main = () => tryCatch(() => {
     startLoopAndEvents()
 }, fatalError)
 
+let isFirstFrameOfThisScreen // is this the first frame of the screen (IE is it != previousScreen)
+let previousScreen // used to check if changed
 let onFrame = tmp => tryCatch(() => {
     if (!self.production && ERROR) {
         return
     }
+
+    isFirstFrameOfThisScreen = previousScreen != currentScreen
+    previousScreen = currentScreen
     frameLogReset()
     recalculateViewport()
     updateTime()
     perFrameValidation()
     initCanvasMatrix()
+    clearScreen('#111')
+
+    mutationCheckInit()
 
     tmp = ({
-        [SCREEN_DEFAULT]:onFrameDemo,
-        [SCREEN_TESTING]:onFrameTesting,
+        [SCREEN_MAIN_MENU]:onFrameMainMenu,
         [SCREEN_SPACE_GAME]:onFrameSpaceGame,
+        [SCREEN_DEAD]:onFrameDeath,
+        [SCREEN_TESTING]:onFrameTesting,
     })[currentScreen]
 
     if (!self.production && !tmp) {
         assertFail('unknown screen ' + currentScreen)
     }
 
-    tmp(currentScreen != previousScreen)
-    previousScreen = currentScreen
+    tmp(isFirstFrameOfThisScreen)
+
+    mutationCheck()
 }, fatalError)
 
 // CONSTANTS
@@ -52,23 +62,22 @@ let canvasPixelWidth = 0
 let FONT_HEIGHT = 32
 let FONT_WIDTH = 20
 let ERROR_LINE_LENGTH = 60
-// where was the last click
-let mouseClick = [0, 0]
 
 // The game is a big state machine
-let SCREEN_DEFAULT = 1
-let SCREEN_SPACE_GAME = 51
+let SCREEN_MAIN_MENU = 1
+let SCREEN_SPACE_GAME = 2
+let SCREEN_DEAD = 3
 let SCREEN_TESTING = 123
 
 // VARIABLES
 
+// TODO maybe we can just use absolute TIME and START, also START is never used
 let START = (Date.now() - 1000) / 1000.0 // avoid negative nums: start at 10 seconds
 let TIME = (Date.now() - START) / 1000.0
 let ERROR
 let updateTime = () => TIME = (Date.now() - START) / 1000.0
-let currentScreen = +('' + location).match(/screen=(\d+)/)?.[1] || SCREEN_DEFAULT
+let currentScreen = +('' + location).match(/screen=(\d+)/)?.[1] || SCREEN_MAIN_MENU
 let cheatsOn = +('' + location).match(/cheats=(\d+)/)?.[1]
-let previousScreen // used to check if changed
 
 let recalculateViewport = () => {
     canvasSize = [a.width = innerWidth, a.height = innerHeight];
@@ -87,7 +96,7 @@ let initCanvasMatrix = () => {
     ctx.scale(canvasSmallSideLength, canvasSmallSideLength)
 }
 let errorFont = '32px monospace'
-let screenFont = '0.05px monospace'
+let screenFont = size => (size * .05) + 'px monospace'
 let screenFontHeight = 0.025
 let onError = (_, __, ___, ____, e) => {
     if (!self.production) debugger
@@ -147,17 +156,22 @@ let frameLogY = 0
 let frameLogReset = self.production
     ? () => {}
     : () => { frameKeys = {}; frameLogY = 0 }
-let frameLog = self.production
-    ? () => {}
-    : (key, ...message) => {
-        if (frameKeys[key]) return; else frameKeys[key] = true
+let frameLog = (key, ...message) => {
+    if (frameKeys[key]) return;
 
-        drawText(key + ': ' + message.map(str).join(" "), 0, 0.1 + (frameLogY += 0.1))
-    }
-let drawText = (words, x, y) => {
-    ctx.fillStyle = '#fff'
-    ctx.font = screenFont
-    words.split('\n').map((word, i) => {
+    frameKeys[key] = true
+
+    frameLog2(key + ': ' + message.map(str).join(" "))
+}
+let frameLog2 = (message, size) => {
+    frameLogY += 0.1
+    drawText(message, .001, 0.101 + frameLogY, '#200', size)
+    return drawText(message, 0, 0.1 + frameLogY, '#fff', size)
+}
+let drawText = (words, x, y, fillStyle='#fff', size = 1) => {
+    ctx.fillStyle = fillStyle
+    ctx.font = screenFont(size)
+    return words.split('\n').map((word, i) => {
         ctx.fillText(word, x, y + (0.1 * i))
     })
 }
@@ -181,10 +195,17 @@ let keyCodesToControls = {
     // roll (Screw): Z and C
     90: 's',
     67: 'S',
+    // B stands for "bress the button in the UI"
+    13: 'B',
+    32: 'B',
+    // UNUSED?
     32: 'B', // space: brake
     16: 'b', // shift: release "babeety"
 }
 let controls = {}
+
+let FRAME_INTERVAL = 16
+let FRAME_INTERVAL_MS_INV = 63 // 62.5 actually
 
 let startLoopAndEvents = () => {
     onkeydown = onkeyup = e => {
@@ -199,13 +220,7 @@ let startLoopAndEvents = () => {
     // draw each screen in the switch's cases
     // in each screen, you can make key presses update the game state
     // ex: "press enter to open the menu" => `if(allKeys[13])s=1;`
-    setInterval(onFrame, 16)
-
-    // handle click/touch events
-    // globals x and y contain the pointer's coordinates
-    // in each screen, you can make a click update the game state
-    // ex: "game over if we click on the bottom half of the screen" => `if(y>h/2)s=3;`
-    onmousedown = e => ((mouseClick = [e.pageX, e.pageY]), e.preventDefault())
+    setInterval(onFrame, FRAME_INTERVAL)
 
     if (!self.production) {
         onerror = onError
@@ -216,6 +231,44 @@ let perFrameValidation = () => {
     assert(() => x === 0)
     assert(() => y === 1)
     assert(() => z === 2)
+}
+
+let clearScreen = (color = '#f00') => {
+    ctx.fillStyle = color
+    return ctx.fillRect(-10, -10, 20, 20) // returns undefined
+}
+
+// GUI utility. Scopes a menu index variable, from which the user can choose
+let menuIndexChange
+let createMenu = (options, i = 0) => {
+    options = options.filter(o => !!o)
+    menuIndexChange = TIME
+    return () => {
+        if (controls.u || controls.P) {
+            controls.u = controls.P = 0
+            i--
+            menuIndexChange = TIME
+        }
+        if (controls.d || controls.p) {
+            controls.d = controls.p = 0
+            i++
+            menuIndexChange = TIME
+        }
+        i += options.length
+        i %= options.length
+        return options.map(([optWords, optCb], optI) => {
+            if (optI - i) {
+                ctx.globalAlpha = 1
+                return frameLog2('  ' + optWords, 1)
+            } else {
+                if (controls.B) {
+                    return optCb()
+                }
+                ctx.globalAlpha = 1.2 + Math.sin((TIME - menuIndexChange) * 20)
+                return frameLog2('> ' + optWords, 1)
+            }
+        }), ctx.globalAlpha = 1
+    }
 }
 
 self.main = main

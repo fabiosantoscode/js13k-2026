@@ -29,6 +29,7 @@ let story = [
             setCameraRotation2(matRotateX(TAU*0.24))
             spaceGameInertia = [0, -0.5, 0]
             spaceGameRotationInertia = matRotateY(0.002)
+            fuel = 0.1
         },
         () => 0, // false
     ],
@@ -43,8 +44,8 @@ let showWordsIndex = -1
 let showWordsTime = 3
 let showingTheseWordsUntil
 /** returns truthy if should skip frame */
-let advanceStory = ([wordsList, initialize, shouldGoToNext] = story[savedGame]) => {
-    if (!storyState) {
+let advanceStory = (isFirstFrame, [wordsList, initialize, shouldGoToNext] = story[savedGame]) => {
+    if (!storyState || isFirstFrame) {
         storyState = STORY_STATE_WORDS;
         if (!self.production && skipStory) {
             storyState = STORY_STATE_START_GAME

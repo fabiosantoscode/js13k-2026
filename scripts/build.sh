@@ -1,6 +1,6 @@
 #!/bin/bash
 
-FILES="math.js assets.js game.js engine.js story.js"
+FILES="mut-check.js math.js assets.js game.js engine.js story.js"
 OUT_FILE="build/index.html"
 mkdir -p build
 
