@@ -1,6 +1,5 @@
-let skipStory = !self.production && /skipstory=1/.test(location)
-let savedGame = +tryCatch(() => localStorage[location]) || 0
-let saveGame = () => tryCatch(() => localStorage[location] = savedGame)
+let savedGame = +tryCatch(() => localStorage[locationHref]) || 0
+let saveGame = () => tryCatch(() => localStorage[locationHref] = savedGame)
 let story = [
     [
         [
@@ -22,12 +21,12 @@ let story = [
             setCameraPosition(
                 vecAddVec(
                     planetFishy[planetTransform][0],
-                    [0, 3000, -30]
+                    skipToFishy ? [0, 130, -3] : [0, 3000, -30]
                 )
             )
             setCameraRotation2(matRotateY(TAU/2))
             setCameraRotation2(matRotateX(TAU*0.24))
-            spaceGameInertia = [0, -0.5, 0]
+            spaceGameInertia = skipToFishy ? [0, -0.25, 0] : [0, -0.5, 0]
             spaceGameRotationInertia = matRotateY(0.002)
             fuel = 0.1
         },
@@ -45,10 +44,7 @@ let showingTheseWordsUntil
 /** returns truthy if should skip frame */
 let advanceStory = (isFirstFrame, [wordsList, initialize, shouldGoToNext] = story[savedGame]) => {
     if (!storyState || isFirstFrame) {
-        storyState = STORY_STATE_WORDS;
-        if (!self.production && skipStory) {
-            storyState = STORY_STATE_START_GAME
-        }
+        storyState = skipStory ? STORY_STATE_START_GAME : STORY_STATE_WORDS;
     } else if (storyState == STORY_STATE_WORDS) {
         if (showWordsIndex < 0 || showingTheseWordsUntil < TIME) {
             showWordsIndex++

@@ -224,6 +224,10 @@ let onFrameSpaceGame = isFirstFrame => {
         spaceGamePlanets = initPlanets()
         // Start behind planet fishy
         updateRenderUnicorns = initUpdateRenderUnicorns()
+        // Make sure we advance these
+        advanceStory(isFirstFrame)
+        updateLandedOnPlanet(isFirstFrame)
+        return
     }
 
     // Blip states (early return if one of these is truthy)
@@ -356,7 +360,7 @@ let initPlanets = () => [
             [ 4430, 443, -4920 ],
             matScaled(99),
         ]),
-        "#ffffff",
+        "#443",
         "fishy"
     ],
 ].map(planet => (
@@ -401,9 +405,6 @@ let updateSpaceInertia = inertia => spaceGamePlanets.reduce((inertia, [planetTfo
     if (planetDistance < 1) {
         let planetMass = (planetSize / 1000000)
         var intensity = Math.sqrt((1 - planetDistance)) * planetMass
-        if (intensity > 0.1) {
-            frameLog('gravity intensity ' + planetName, intensity)
-        }
         var vecToward = vecNormalize(vecSubVec(planetPosition, cameraTransform[0]))
         var gravityToward = vecMulNum(vecToward, intensity)
         if (planetName == 'fishy') {
@@ -484,13 +485,33 @@ let initUpdateRenderUnicorns = () => {
 }
 
 let landedOnPlanet
+let landedMenu
 let updateLandedOnPlanet = (isFirstFrame) => {
-    if (isFirstFrame) { landedOnPlanet = 0 }
-    if (!landedOnPlanet) return
+    if (isFirstFrame) {
+        landedMenu = createMenu([
+            ['offblast now', offblast],
+        ])
+        return landedOnPlanet = 0
+    } else if (!landedOnPlanet) {
+        return 0
+    } else {
+        frameLog('FUEL SUC', landedOnPlanet[planetName])
+        frameLog('FUEL LVL', (fuel = Math.min(1, fuel + 0.0005)))
+        if (fuel > 0.2) landedMenu()
+        return 1
+    }
+}
 
-    frameLog('FUEL SUC', landedOnPlanet[planetName])
-    frameLog('FUEL LVL', (fuel = Math.min(1, fuel + 0.0005)))
-    return fuel >= 1
+let offblastSpeed = 0.003
+let offblast = () => {
+    let planetCenter = landedOnPlanet[planetTransform][0]
+    let playerPosition = cameraTransform[0]
+    let awayFromPlanet = vecSubVec(playerPosition, planetCenter)
+    spaceGameInertia = vecMulNum(awayFromPlanet, offblastSpeed)
+
+    // Fuck off
+
+    landedOnPlanet = 0
 }
 
 let speedTooFastToLand = 30
@@ -511,10 +532,18 @@ let updateRenderLanding = () => {
     frameLog('closest planet', closestPlanet[planetName], closestPlanetDistance.toFixed(2) + 'km')
 
     if (closestPlanetDistance < 0) {
-        if (speed > speedTooFastToLand) {
-            die('crash landed on planet ' + closestPlanet[planetName])
+        let towardsPlanet = vecDotVec(spaceGameInertia, vecSubVec(closestPlanet[planetTransform][0], cameraTransform[0]))
+        // When going away from planet, do not land
+        if (towardsPlanet > 0) {
+            if (speed > speedTooFastToLand) {
+                die('crash landed on planet ' + closestPlanet[planetName])
+            }
+            landedOnPlanet = closestPlanet
         }
-        landedOnPlanet = closestPlanet
     }
 }
 
+let fuel
+let updateRenderFuel = () => {
+    assert(() => isFinite(fuel) && fuel > -0.1 && fuel < 1.1)
+}

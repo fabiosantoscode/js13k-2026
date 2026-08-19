@@ -115,6 +115,7 @@ let assertThrows = (cb) => {
     assertFail('callback `' + cb + '` did not throw')
 }
 let isNum = n => typeof n == 'number'
+let isStr = s => s.big
 let isVec = vec => vec.length === 3 && vec.every(isNum)
 let isQuat = quat => quat.length === 4 && quat.every(isNum)
 let isMat = mat => mat.length === 3 && mat.every(isVec)
@@ -178,7 +179,7 @@ let str = n => (
             ? Math.round(n * 1000) / 1000
             : n
     )
-    : !n ? n
+    : !n || isStr(n) ? n
     : isVec(n) ? `vec([${n.map(str)}])`
     : isMat(n) ? `mat([${n.map(n => `[${n.map(str)}]`)}])`
     : isTform(n) ? `tform([${str(n[0])}, ${str(n[1])}])`

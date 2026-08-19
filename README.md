@@ -3,6 +3,18 @@
 
 A game about space, love, unicorns, death and of course space.
 
+## SYNOPSIS
+
+```
+npm install -g live-server terser
+
+# host locally
+live-server
+
+# build & host build
+./scripts/build.sh && (cd build && live-server)
+```
+
 ## HACKING
 
 To run this, install a server (I recommend `npm install -g live-server`) and run it. It runs as-is on localhost as long as you open index.html.

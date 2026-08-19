@@ -23,7 +23,7 @@ let onFrame = tmp => tryCatch(() => {
     previousScreen = currentScreen
     frameLogReset()
     recalculateViewport()
-    updateTime()
+    TIME = getTime()
     perFrameValidation()
     initCanvasMatrix()
     clearScreen('#111')
@@ -71,13 +71,16 @@ let SCREEN_TESTING = 123
 
 // VARIABLES
 
-// TODO maybe we can just use absolute TIME and START, also START is never used
-let START = (Date.now() - 1000) / 1000.0 // avoid negative nums: start at 10 seconds
-let TIME = (Date.now() - START) / 1000.0
 let ERROR
-let updateTime = () => TIME = (Date.now() - START) / 1000.0
-let currentScreen = +('' + location).match(/screen=(\d+)/)?.[1] || SCREEN_MAIN_MENU
-let cheatsOn = +('' + location).match(/cheats=(\d+)/)?.[1]
+let getTime = () => new Date * .001
+let TIME = getTime()
+
+// Put these together to benefit from zip
+let locationHref = '' + location
+let currentScreen = +(locationHref).match(/screen=(\d+)/)?.[1] || SCREEN_MAIN_MENU
+let cheatsOn = /cheats=1/.test(locationHref)
+let skipStory = /skipstory=1/.test(locationHref)
+let skipToFishy = /skiptofishy=1/.test(locationHref)
 
 let recalculateViewport = () => {
     canvasSize = [a.width = innerWidth, a.height = innerHeight];
@@ -153,9 +156,7 @@ let globalEval = self.eval
 
 let frameKeys
 let frameLogY = 0
-let frameLogReset = self.production
-    ? () => {}
-    : () => { frameKeys = {}; frameLogY = 0 }
+let frameLogReset = () => { frameKeys = {}; frameLogY = 0 }
 let frameLog = (key, ...message) => {
     if (frameKeys[key]) return;
 
