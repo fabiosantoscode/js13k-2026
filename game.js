@@ -470,16 +470,23 @@ let initUpdateRenderUnicorns = () => {
         // TODO following
         unicornPos = [0.1,0.1,-1000.1]
 
-        let transform = [unicornPos, (matScaled(500))]
-        deferRenderCommand(deferLayer3D, transform, () => {
+        let unicornTransform = [unicornPos, (matScaled(500))]
+        let myForward = vec(vecNormalize(cameraTransformInv[1][z]))
+        let towardUnicornForward = vecNormalize(vec(vecSubVec(cameraTransform[0], unicornTransform[0])))
+        let unicornDotSelf = vecDotVec(myForward, towardUnicornForward)
+
+        // TODO do this dot-strategy elsewhere too?
+        if (unicornDotSelf < 0.1) return
+
+        return deferRenderCommand(deferLayer3D, unicornTransform, () => {
             ctx.fillStyle = '#f06'
-            ctx.fill(assetUnicornBody(transform))
+            ctx.fill(assetUnicornBody(unicornTransform))
             ctx.fillStyle = '#f0a'
-            ctx.fill(assetUnicornHead(transform))
+            ctx.fill(assetUnicornHead(unicornTransform))
             ctx.fillStyle = '#fff'
-            ctx.fill(assetUnicornHorn(transform))
+            ctx.fill(assetUnicornHorn(unicornTransform))
             ctx.fillStyle = '#ff0'
-            ctx.fill(assetUnicornEyesMouth(transform))
+            return ctx.fill(assetUnicornEyesMouth(unicornTransform))
         })
     }
 }
@@ -521,6 +528,14 @@ let updateRenderLanding = () => {
         a[1] - b[1]
     ))[0]
     let message
+    let dotTowardsPlanet = vecLengthSq(spaceGameInertia) > 0.01
+        ? vecDotVec(
+            vecNormalize(spaceGameInertia),
+            vecNormalize(vecSubVec(closestPlanet[planetTransform][0], cameraTransform[0]))
+        )
+        : -0.1
+
+    if (dotTowardsPlanet < 0) return
 
     frameLog('speed', speed.toFixed(2) + 'km/s')
     if (speed > speedTooFastToLand) {
@@ -532,9 +547,8 @@ let updateRenderLanding = () => {
     frameLog('closest planet', closestPlanet[planetName], closestPlanetDistance.toFixed(2) + 'km')
 
     if (closestPlanetDistance < 0) {
-        let towardsPlanet = vecDotVec(spaceGameInertia, vecSubVec(closestPlanet[planetTransform][0], cameraTransform[0]))
         // When going away from planet, do not land
-        if (towardsPlanet > 0) {
+        if (dotTowardsPlanet > 0) {
             if (speed > speedTooFastToLand) {
                 die('crash landed on planet ' + closestPlanet[planetName])
             }

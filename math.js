@@ -1,9 +1,83 @@
+// micro-math3d.js
+// Roughly equivalent to Godot math, in that Z is back, Y is up.
+// But tiny and no objects used.
+//
+// ASSUMPTIONS:
+// - you created a function called 'assertFail(x)' that's an alias for throw new Error(x)
+// - you have configured your JS compiler to precompute `self.production` as `true`. That is, conditional compilation.
+// Sine/cosine. `numSinCos` calculates both & returns sine
+let sin
+let cos
+let numSinCos = n => {
+    n = num(n)
+    cos = Math.cos(n)
+    return sin = Math.sin(n)
+}
+
+// SHAPE FUNCTIONS
+// These functions do nothing but make sure you didn't mess up types
+// num(n) will simply return `n` unless it's NaN, in which case it throws
+// vec(v) will simply return `v` if it's an array of 3 non-NaN numbers
+// etc.
+let num = n => {
+    if (!self.production && (typeof n !== 'number' || isNaN(n))) {
+        assertFail(`${str(n)} is not a num`)
+    }
+    return n;
+}
+let vec = n => {
+    if (!self.production) {
+        if (n.length !== 3) assertFail(`${str(n)} is not a vec`)
+        for (let vecNum = 0; vecNum < 3; vecNum++) {
+            if (typeof n[vecNum] !== 'number' || isNaN(n[vecNum])) {
+                assertFail(`${str(n[vecNum])} is not a vec num`)
+            }
+        }
+    }
+    return n;
+}
+let mat = n => {
+    if (!self.production) {
+        if (n.length !== 3) assertFail(`${str(n)} is not a mat`)
+        for (let row = 0; row < 3; row++) {
+            if (n[row].length !== 3) assertFail(`${str(n[row])} is not a mat row`)
+            for (let cell = 0; cell < 3; cell++) {
+                if (typeof n[row][cell] !== 'number' || isNaN(n[row][cell])) {
+                    assertFail(`${str(n[row][cell])} is not a mat cell num`)
+                }
+            }
+        }
+    }
+    return n;
+}
+let tform = n => {
+    if (!self.production) {
+        if (n[0].length !== 3) assertFail(`${str(n[0])} is not a vec`)
+        for (let vecNum = 0; vecNum < 3; vecNum++) {
+            if (typeof n[0][vecNum] !== 'number' || isNaN(n[0][vecNum])) {
+                assertFail(`${str(n[0][vecNum])} is not a vec num`)
+            }
+        }
+
+        if (n[1].length !== 3) assertFail(`${str(n[1])} is not a mat`)
+        for (let row = 0; row < 3; row++) {
+            if (n[1][row].length !== 3) assertFail(`${str(n[1][row])} is not a mat row`)
+            for (let cell = 0; cell < 3; cell++) {
+                if (typeof n[1][row][cell] !== 'number' || isNaN(n[1][row][cell])) {
+                    assertFail(`${str(n[1][row][cell])} is not a mat cell num`)
+                }
+            }
+        }
+    }
+    return n
+}
 // Putting assert before anything else makes Terser inline it more confidently
 let assert = self.production
     ? () => {}
     : (cond, message = 'assertion error') => {
         if (!cond()) {
-            assertFail(unwrapFunction(message) + ' ' + cond)
+            message = typeof message == 'function' ? message() : message
+            assertFail(message + ' ' + cond)
         }
     }
 
@@ -70,12 +144,6 @@ let testMath = () => {
         [7, 8, 9],
     ])
 
-    let rotate90deg3 = quatFromAxisAngle([0, -1, 0], TAU * 0.25)
-    assertEq(quatTransformVec(rotate90deg3, [0, 0, -1]), [1, 0, 0])
-
-    let rotateNothing = quatTransformQuat(rotate90deg3, quatFromAxisAngle([0, -1, 0], -TAU * 0.25))
-    assertEq(quatTransformVec(rotateNothing, [0, 0, -1]), [0, 0, -1])
-
     // matrix by angle tests
     assertEq(matRotateX(0.5), matFromAxisAngle([1, 0, 0], 0.5))
     assertEq(matRotateY(0.5), matFromAxisAngle([0, 1, 0], 0.5))
@@ -92,11 +160,6 @@ let assertEq = (n1, n2) => {
     n2 = [n2].flat(Infinity)
     assert(() => n1.length == n2.length)
     assert(() => n1.every((it, i) => Math.abs(it - n2[i]) < 0.001), () => `${str(n1)} != ${str(n2)}`)
-}
-let numSinCos = n => {
-    n = num(n)
-    cos = Math.cos(n)
-    return sin = Math.sin(n)
 }
 // LCG deterministic random number generator.
 // https://stackoverflow.com/a/72732727/1011311 (adapted)
@@ -115,63 +178,11 @@ let assertThrows = (cb) => {
     assertFail('callback `' + cb + '` did not throw')
 }
 let isNum = n => typeof n == 'number'
-let isStr = s => s.big
-let isVec = vec => vec.length === 3 && vec.every(isNum)
-let isQuat = quat => quat.length === 4 && quat.every(isNum)
-let isMat = mat => mat.length === 3 && mat.every(isVec)
-let isTform = tform => tform.length === 2 && isVec(tform[0]) && isMat(tform[1])
-let num = n => {
-    if (!self.production && (typeof n !== 'number' || isNaN(n))) {
-        assertFail(`${str(n)} is not a num`)
-    }
-    return n;
-}
-let vec = n => {
-    if (!self.production) {
-        if (n.length !== 3) assertFail(`${str(n)} is not a vec`)
-        for (let vecNum = 0; vecNum < 3; vecNum++) {
-            if (typeof n[vecNum] !== 'number' || isNaN(n[vecNum])) {
-                assertFail(`${str(n[vecNum])} is not a vec num`)
-            }
-        }
-    }
-    return n;
-}
-let mat = n => {
-    if (!self.production) {
-        if (n.length !== 3) assertFail(`${str(n)} is not a mat`)
-        for (let row = 0; row < 3; row++) {
-            if (n[row].length !== 3) assertFail(`${str(n[row])} is not a mat row`)
-            for (let cell = 0; cell < 3; cell++) {
-                if (typeof n[row][cell] !== 'number' || isNaN(n[row][cell])) {
-                    assertFail(`${str(n[row][cell])} is not a mat cell num`)
-                }
-            }
-        }
-    }
-    return n;
-}
-let tform = n => {
-    if (!self.production) {
-        if (n[0].length !== 3) assertFail(`${str(n[0])} is not a vec`)
-        for (let vecNum = 0; vecNum < 3; vecNum++) {
-            if (typeof n[0][vecNum] !== 'number' || isNaN(n[0][vecNum])) {
-                assertFail(`${str(n[0][vecNum])} is not a vec num`)
-            }
-        }
-
-        if (n[1].length !== 3) assertFail(`${str(n[1])} is not a mat`)
-        for (let row = 0; row < 3; row++) {
-            if (n[1][row].length !== 3) assertFail(`${str(n[1][row])} is not a mat row`)
-            for (let cell = 0; cell < 3; cell++) {
-                if (typeof n[1][row][cell] !== 'number' || isNaN(n[1][row][cell])) {
-                    assertFail(`${str(n[1][row][cell])} is not a mat cell num`)
-                }
-            }
-        }
-    }
-    return n
-}
+let isStr = s => s && s.big
+let isVec = vec => vec && vec.length === 3 && vec.every(isNum)
+let isQuat = quat => quat && quat.length === 4 && quat.every(isNum)
+let isMat = mat => mat && mat.length === 3 && mat.every(isVec)
+let isTform = tform => tform && tform.length === 2 && isVec(tform[0]) && isMat(tform[1])
 let shape = n => isNum(n) ? 1 : isVec(n) ? 2 : isMat(n) ? 3 : isTform(n) ? 4 : assertFail('unknown shape for ' + n)
 let str = n => (
     isNum(n) ? (
@@ -187,8 +198,6 @@ let str = n => (
     : n.map ? `[${n}]`
     : n
 ) + ''
-let sin
-let cos
 let numCloseTo = (a, b) => {
     return Math.abs(num(a) - num(b)) < 0.02
 }
@@ -205,7 +214,7 @@ let vecIsNormalized = (v) => {
     return numCloseTo(vecLengthSq(v), 1)
 }
 let vecNormalize = (v, lenSq = vecLengthSq(v), length = Math.sqrt(lenSq)) => {
-    let norm = mapI3(axis => v[axis]/length)
+    let norm = mapI3(axis => num(v[axis]/length))
 
     assert(() => vecIsNormalized(norm))
 
@@ -228,13 +237,16 @@ let tformIdentity = () => [
 let vecDotVec = (v1, v2) => {
     return num((v1[x] * v2[x]) + (v1[y] * v2[y]) + (v1[z] * v2[z]))
 }
-let vecDotVec2Unchecked = (v1, v2) => (v1[x] * v2[x]) + (v1[y] * v2[y])
 // from godot vector3.h
-let vecCrossVec = (v1, v2) => [
-    (v1[y] * v2[z]) - (v1[z] * v2[y]),
-    (v1[z] * v2[x]) - (v1[x] * v2[z]),
-    (v1[x] * v2[y]) - (v1[y] * v2[x]),
-]
+let vecCrossVec = (v1, v2) => (
+    vec(v1),
+    vec(v2),
+    [
+        (v1[y] * v2[z]) - (v1[z] * v2[y]),
+        (v1[z] * v2[x]) - (v1[x] * v2[z]),
+        (v1[x] * v2[y]) - (v1[y] * v2[x]),
+    ]
+)
 let vecLerp = (v1, v2, weight) => mapI3(axis => numLerp(v1[axis], v2[axis], weight))
 let vecDistance = (v1, v2) => Math.sqrt(
     vecLengthSq(vecSubVec(v1, v2))
@@ -330,7 +342,6 @@ let matOrthonormalize = (m) => {
 
     return m
 }
-let matSum = m => arrayFlat(m).reduce((a, b) => a + b, 0)
 let matIsOrthonormalized = m =>
     numCloseTo(vecLengthSq(m[x]) + vecLengthSq(m[y]) + vecLengthSq(m[z]), 3)
     && numCloseTo(0, vecDotVec(m[x], m[y]))
@@ -454,103 +465,6 @@ let tformGetScale = t => {
     return (t[1][x][x] + t[1][x][y] + t[1][x][z])/3
 }
 let tformScaleNum = (t, s) => tform([t[0], matScaleNum(t[1], s)])
-let quatIdentity = () => [0, 0, 0, 1]
-// https://github.com/godotengine/godot/blob/89cea143987d564363e15d207438530651d943ac/core/math/quaternion.cpp#L283
-let quatFromAxisAngle = (axis, angle) => {
-    assert(() => vecIsNormalized(axis))
-    let d = vecLength(axis)
-    assert(() => !numCloseTo(d, 0))
-
-    numSinCos(angle * 0.5)
-    let s = sin / d
-
-    return [
-        axis[x] * s,
-        axis[y] * s,
-        axis[z] * s,
-        cos,
-    ]
-}
-// https://pastebin.com/fAFp6NnN
-let quatTransformVec = (rotation, value) => {
-    // https://github.com/godotengine/godot/blob/89cea143987d564363e15d207438530651d943ac/core/math/quaternion.h#L92
-    let u = [rotation[x], rotation[y], rotation[z]]
-    let uv = vecCrossVec(u, value)
-    let uuv = vecCrossVec(u, uv)
-    return vecAddVec(
-        value,
-        vecMulNum(
-            vecAddVec(vecMulNum(uv, rotation[w]), uuv),
-            2
-        )
-    )
-
-    let num12 = rotation[x] + rotation[x]
-    let num2 = rotation[y] + rotation[y]
-    let num = rotation[z] + rotation[z]
-    let num11 = rotation[w] * num12
-    let num10 = rotation[w] * num2
-    let num9 = rotation[w] * num
-    let num8 = rotation[x] * num12
-    let num7 = rotation[x] * num2
-    let num6 = rotation[x] * num
-    let num5 = rotation[y] * num2
-    let num4 = rotation[y] * num
-    let num3 = rotation[z] * num
-    let num15 = ((value[x] * ((1 - num5) - num3)) + (value[y] * (num7 - num9))) + (value[z] * (num6 + num10))
-    let num14 = ((value[x] * (num7 + num9)) + (value[y] * ((1 - num8) - num3))) + (value[z] * (num4 - num11))
-    let num13 = ((value[x] * (num6 - num10)) + (value[y] * (num4 + num11))) + (value[z] * ((1 - num8) - num5))
-    return [num15, num14, num13]
-}
-let quatTransformMat = (q, m) => mapI3(axis => quatTransformVec(q, m[axis]))
-// https://github.com/godotengine/godot/blob/89cea143987d564363e15d207438530651d943ac/core/math/quaternion.cpp#L283
-let quatTransformQuat = (q, p_q) => {
-    return [
-        q[w] * p_q[x] + q[x] * p_q[w] + q[y] * p_q[z] - q[z] * p_q[y],
-        q[w] * p_q[y] + q[y] * p_q[w] + q[z] * p_q[x] - q[x] * p_q[z],
-        q[w] * p_q[z] + q[z] * p_q[w] + q[x] * p_q[y] - q[y] * p_q[x],
-        q[w] * p_q[w] - q[x] * p_q[x] - q[y] * p_q[y] - q[z] * p_q[z],
-    ]
-}
-let quatNormalize = (q) => {
-    return quatDivide(q, quatLength(q))
-}
-let quatDivide = (q, n) => {
-    return [q[x] / n, q[y] / n, q[z] / n, q[w] / n]
-}
-let quatLength = q => Math.sqrt(quatLengthSq(q))
-let quatLengthSq = q => quatDotQuat(q, q)
-let quatDotQuat = (q, q2) => num(q[x] * q2[x] + q[y] * q2[y] + q[z] * q2[z] + q[w] * q2[w])
-let arrayFlat = a => [a].flat(1 / 0) // Infinity
-let unwrapFunction = fn => typeof fn === 'function' ? fn() : fn
-let assertNotNaN = (value) => {
-    if (!self.production) {
-        if (value && typeof value === 'object' && value.length === 2) {
-            // tform
-            assertNotNaN(value[0])
-            assertNotNaN(value[1])
-        } else if (typeof value === 'number') {
-            if (isNaN(value)) throw new Error('NaN found')
-        } else {
-            for (let item = 0; item < 3; item++) {
-                if (typeof value[item] === 'number') {
-                    if (isNaN(value[item])) throw new Error('NaN found')
-                } else {
-                    for (let innerItem = 0; innerItem < 3; innerItem++) {
-                        if (isNaN(value[item][innerItem]) || typeof value[item][innerItem] !== 'number') throw new Error('NaN found')
-                    }
-                }
-            }
-        }
-    }
-}
 let assertFail = message => {
     throw new Error(message)
-}
-let tryCatch = (try_, catch_ = str /* str is an okay no-op */) => {
-    try {
-        return try_(try_)
-    } catch (try_) {
-        return catch_(try_)
-    }
 }

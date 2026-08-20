@@ -45,6 +45,13 @@ let onFrame = tmp => tryCatch(() => {
 
     mutationCheck()
 }, fatalError)
+let tryCatch = (try_, catch_ = str /* str is an okay no-op */) => {
+    try {
+        return try_(try_)
+    } catch (try_) {
+        return catch_(try_)
+    }
+}
 
 // CONSTANTS
 // Vector keys
