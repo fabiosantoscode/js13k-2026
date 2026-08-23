@@ -421,8 +421,8 @@ let updateRenderPlanets = () => spaceGamePlanets
     )
 
 
-let updateSpaceInertia = inertia => spaceGamePlanets.reduce((inertia, [planetTform, _planetColor, planetName]) => {
-    // Let's gravitate towards the sun
+let updateSpaceInertia = inertia => inertia /* spaceGamePlanets.reduce((inertia, [planetTform, _planetColor, planetName]) => {
+    // Let's gravitate towards the sun & planets?
     let planetPosition = vec(planetTform[0])
     let planetDistance = vecDistance(cameraTransform[0], planetPosition)
     let planetSize = vecLength(planetTform[1][x])
@@ -441,7 +441,7 @@ let updateSpaceInertia = inertia => spaceGamePlanets.reduce((inertia, [planetTfo
         return inertia
     }
     return inertia
-}, inertia)
+}, inertia) */
 
 let updateControls = () => {
     assert(() => matIsOrthonormalized(cameraTransformInv[1]))
