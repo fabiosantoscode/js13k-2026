@@ -494,11 +494,13 @@ let updateControls = () => {
 }
 
 let unicornPos
-let updateRenderUnicorns = () => {
-    markMut('unicornPos')
+let updateRenderUnicorns = (isFirstFrame) => {
+    if (isFirstFrame) {
+        markMut('unicornPos')
+        unicornPos = [0.1,0.1,-1000.1]
+    }
 
     // TODO following the player
-    unicornPos = [0.1,0.1,-1000.1]
 
     let unicornTransform = [unicornPos, (matScaled(500))]
     let myForward = vec(vecNormalize(cameraTransformInv[1][z]))
@@ -575,10 +577,10 @@ let updateRenderLanding = () => {
     frameLog('approaching', getPlanetName(closestPlanet))
     frameLog('speed', speed.toFixed(2) + 'km/s')
 
-    if (speed > speedTooFastToLand) {
-        frameLog('autopilot', 'too fast to land safely')
-    } else if (closestPlanet == planetSun) {
+    if (closestPlanet == planetSun) {
         frameLog('autopilot', 'cannot land safely on the sun')
+    } else if (speed > speedTooFastToLand) {
+        frameLog('autopilot', 'too fast to land safely')
     }
 
     if (
