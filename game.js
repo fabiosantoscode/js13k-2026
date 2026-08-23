@@ -160,10 +160,7 @@ let initMainMenu = () => {
             currentScreen = SCREEN_SPACE_GAME
         )],
         ['free flight', () => (
-            currentScreen = SCREEN_FREE_FLIGHT,
-            setCameraPosition([3000, -1000, 0]),
-            setCameraRotation(-0.2, -TAU/4),
-            console.log(cameraTransform)
+            currentScreen = SCREEN_FREE_FLIGHT
         )]
     ])
 }
@@ -188,7 +185,10 @@ let onFrameMainMenu = (isFirstFrame) => {
 let deadUntil
 let deadReason
 let onFrameDeath = (isFirstFrame) => {
-    if (isFirstFrame) deadUntil = TIME + 4
+    if (isFirstFrame) {
+        markMut('deadUntil')
+        deadUntil = TIME + 4
+    }
 
     clearScreen('#e33')
 
@@ -197,6 +197,7 @@ let onFrameDeath = (isFirstFrame) => {
     if (deadUntil < TIME) { currentScreen = SCREEN_MAIN_MENU }
 }
 let die = reason => {
+    markMut('deadReason')
     deadReason = reason
     currentScreen = SCREEN_DEAD
 }
@@ -222,19 +223,31 @@ let undeferRenderCommands = () =>
     })
 
 // Some of these are initialized in story.js :D
-let spaceGameInertia = vecZero()
-let spaceGameRotationInertia = matIdentity()
+let spaceGameInertia
+let spaceGameRotationInertia
 let spaceGamePlanets
 let onFrameSpaceGame = storyMode => isFirstFrame => {
     if (isFirstFrame) {
+        markMut('spaceGamePlanets')
+        markMut('planetSun')
+        markMut('planetFishy')
         spaceGamePlanets = initPlanets()
-        if (storyMode) {
-            // Start behind planet fishy
-            updateRenderUnicorns = initUpdateRenderUnicorns()
-            // Make sure we advance these
-            advanceStory(isFirstFrame)
-        }
+
+        markMut('spaceGameInertia')
+        spaceGameInertia = vecZero()
+        markMut('spaceGameRotationInertia')
+        spaceGameRotationInertia = matIdentity()
+
         updateLandedOnPlanet(isFirstFrame)
+        // Initialize things (first frame, after all)
+        if (storyMode) {
+            updateRenderUnicorns(isFirstFrame)
+            advanceStory(isFirstFrame)
+        } else {
+            setCameraPosition([3000, -1000, 0])
+            setCameraRotation(-0.2, -TAU/4)
+        }
+        undeferRenderCommands()
         return
     }
 
@@ -421,10 +434,9 @@ let updateSpaceInertia = inertia => spaceGamePlanets.reduce((inertia, [planetTfo
         var intensity = Math.sqrt((1 - planetDistance)) * planetMass
         var vecToward = vecNormalize(vecSubVec(planetPosition, cameraTransform[0]))
         var gravityToward = vecMulNum(vecToward, intensity)
-        if (planetName == 'fishy') {
-            frameLog('gravity intensity', intensity)
-            return vecAddVec(inertia, gravityToward)
-        }
+        //if (planetName == 'fishy') {
+            //return vecAddVec(inertia, gravityToward)
+        //}
         return inertia
     }
     return inertia
@@ -449,6 +461,12 @@ let updateControls = () => {
         matYaw,
         matRoll,
     ].reduce(matTransformMat)
+
+    if (Math.abs(pitch) + Math.abs(yaw) + Math.abs(roll) < 0.01) {
+        // In space, there's no air resistance. But this is a game and it gets disorienting
+        spaceGameRotationInertia = matLerp(spaceGameRotationInertia, matIdentity(), 0.002)
+    }
+
     if (controls.B) {
         spaceGameRotationInertia = matLerp(spaceGameRotationInertia, matIdentity(), 0.1)
         if (cheatsOn) {
@@ -474,41 +492,42 @@ let updateControls = () => {
     setCameraPosition(vecAddVec(cameraTransform[0], spaceGameInertia))
 }
 
-let updateRenderUnicorns
-let initUpdateRenderUnicorns = () => {
-    let unicornStart = TIME + 10
-    let unicornPos = cameraTransform[0]
-    let recordedPlayerPositions = []
+let unicornPos
+let updateRenderUnicorns = () => {
+    markMut('unicornPos')
 
-    return () => {
-        // TODO following
-        unicornPos = [0.1,0.1,-1000.1]
+    // TODO following the player
+    unicornPos = [0.1,0.1,-1000.1]
 
-        let unicornTransform = [unicornPos, (matScaled(500))]
-        let myForward = vec(vecNormalize(cameraTransformInv[1][z]))
-        let towardUnicornForward = vecNormalize(vec(vecSubVec(cameraTransform[0], unicornTransform[0])))
-        let unicornDotSelf = vecDotVec(myForward, towardUnicornForward)
+    let unicornTransform = [unicornPos, (matScaled(500))]
+    let myForward = vec(vecNormalize(cameraTransformInv[1][z]))
+    let towardUnicornForward = vecNormalize(vec(vecSubVec(cameraTransform[0], unicornTransform[0])))
+    let unicornDotSelf = vecDotVec(myForward, towardUnicornForward)
 
-        // TODO do this dot-strategy elsewhere too?
-        if (unicornDotSelf < 0.1) return
+    // TODO do this dot-strategy elsewhere too?
+    if (unicornDotSelf < 0.1) return
 
-        return deferRenderCommand(deferLayer3D, unicornTransform, () => {
-            ctx.fillStyle = '#f06'
-            ctx.fill(assetUnicornBody(unicornTransform))
-            ctx.fillStyle = '#f0a'
-            ctx.fill(assetUnicornHead(unicornTransform))
-            ctx.fillStyle = '#fff'
-            ctx.fill(assetUnicornHorn(unicornTransform))
-            ctx.fillStyle = '#ff0'
-            return ctx.fill(assetUnicornEyesMouth(unicornTransform))
-        })
-    }
+    return deferRenderCommand(deferLayer3D, unicornTransform, () => {
+        ctx.fillStyle = '#f06'
+        ctx.fill(assetUnicornBody(unicornTransform))
+        ctx.fillStyle = '#f0a'
+        ctx.fill(assetUnicornHead(unicornTransform))
+        ctx.fillStyle = '#fff'
+        ctx.fill(assetUnicornHorn(unicornTransform))
+        ctx.fillStyle = '#ff0'
+        return ctx.fill(assetUnicornEyesMouth(unicornTransform))
+    })
 }
 
 let landedOnPlanet
 let landedMenu
 let updateLandedOnPlanet = (isFirstFrame) => {
     if (isFirstFrame) {
+        markMut('fuel')
+        markMut('landedMenu')
+        markMut('landedOnPlanet')
+        fuel = 1
+
         landedMenu = createMenu([
             ['offblast now', offblast],
         ])
@@ -574,9 +593,4 @@ let updateRenderLanding = () => {
             landedOnPlanet = closestPlanet
         }
     }
-}
-
-let fuel
-let updateRenderFuel = () => {
-    assert(() => isFinite(fuel) && fuel > -0.1 && fuel < 1.1)
 }

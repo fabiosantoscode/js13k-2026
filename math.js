@@ -9,6 +9,8 @@
 let sin
 let cos
 let numSinCos = n => {
+    markMut('sin')
+    markMut('cos')
     n = num(n)
     cos = Math.cos(n)
     return sin = Math.sin(n)
@@ -71,15 +73,6 @@ let tform = n => {
     }
     return n
 }
-// Putting assert before anything else makes Terser inline it more confidently
-let assert = self.production
-    ? () => {}
-    : (cond, message = 'assertion error') => {
-        if (!cond()) {
-            message = typeof message == 'function' ? message() : message
-            assertFail(message + ' ' + cond)
-        }
-    }
 
 let testMath = () => {
     num(1)
@@ -215,6 +208,7 @@ let vecAddVec = (v1, v2) => (vec(v1), vec(v2), [v1[x] + v2[x], v1[y] + v2[y], v1
 let vecSubVec = (v1, v2) => (vec(v1), vec(v2), [v1[x] - v2[x], v1[y] - v2[y], v1[z] - v2[z]])
 let vecMulVec = (v1, v2) => (vec(v1), vec(v2), [v1[x] * v2[x], v1[y] * v2[y], v1[z] * v2[z]])
 let vecDivVec = (v1, v2) => (vec(v1), vec(v2), [v1[x] / v2[x], v1[y] / v2[y], v1[z] / v2[z]])
+let vecMoveToward = (v1, v2, byN) => (vec(v1), vec(v2), num(byN), [numMoveToward(v1[x], v2[x], byN), numMoveToward(v1[y], v2[y], byN), numMoveToward(v1[z], v2[z], byN)])
 let vecNegative = (v) => mapI3(i=>-v[i])
 let vecIsNormalized = (v) => {
     return numCloseTo(vecLengthSq(v), 1)
@@ -352,6 +346,10 @@ let matOrthonormalize = (m) => {
 
     return m
 }
+let matMoveToward = (m1, m2, byN) => matOrthonormalize(
+    mapI3(row => vecMoveToward(m1[row], m2[row], byN))
+)
+let matDampen = (m, n) => matMoveToward(m, matIdentity(), n)
 let matIsOrthonormalized = m =>
     numCloseTo(vecLengthSq(m[x]) + vecLengthSq(m[y]) + vecLengthSq(m[z]), 3)
     && numCloseTo(0, vecDotVec(m[x], m[y]))

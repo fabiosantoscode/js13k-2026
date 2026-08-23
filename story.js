@@ -45,11 +45,14 @@ let showingTheseWordsUntil
 /** returns truthy if should skip frame */
 let advanceStory = (isFirstFrame, [wordsList, initialize, shouldGoToNext] = story[savedGame]) => {
     if (!storyState || isFirstFrame) {
+        markMut('storyState')
+        markMut('showWordsIndex')
         showWordsIndex = -1
         storyState = skipStory ? STORY_STATE_START_GAME : STORY_STATE_WORDS;
     } else if (storyState == STORY_STATE_WORDS) {
         if (showWordsIndex < 0 || showingTheseWordsUntil < TIME) {
             showWordsIndex++
+            markMut('showingTheseWordsUntil')
             showingTheseWordsUntil = TIME + showWordsTime
         }
         if (wordsList[showWordsIndex]) {

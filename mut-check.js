@@ -1,36 +1,65 @@
 
-// Whatever was there at the start
-let nativeGlobals
+// Evil-ly retrieve all variables
+// Somehow does not use eval
+// But, reads source code!
+let varDeclRegex = /(?:let|var)\s*(\w+)/g
+let _allLetVariables = !self.production
+    && (async () => {
+        let scriptSources = await Promise.all(Array.from(document.getElementsByTagName('script'), async script => {
+            if (!script.src) return ''
+            let res = await fetch(script.src)
+            return await res.text()
+        }))
+        let reduced = scriptSources.reduce((s1, s2) => s1 + s2)
+        let variables = reduced.match(varDeclRegex).map(let_ => let_.replace(varDeclRegex, '$1')) // It's okay to have a few false positives AND false negatives.
+        let variablesThatExist = variables.filter(let_ => {
+            try {
+                _variableReader(let_)()
+                return true
+            } catch {}
+        })
+        allLetVariables = variablesThatExist
+    })()
+let allLetVariables // defined asynchronously, above
+let globalsAfterInit
+let _variableReaders = {}
+
+// let handledKeys
+// let markMut
 
 // After the first frame
 let mutationCheckInit = () => {
     if (self.production) return
-    if (nativeGlobals) return
+    if (!allLetVariables) return
+    if (globalsAfterInit) return
 
-    nativeGlobals = {...Object.fromEntries(Object.entries(self).map(([k, glob]) => {
-        return [k, str(glob)]
-    }))}
+    markMut('globalsAfterInit')
+    markMut('_variableReaders')
+
+    globalsAfterInit = Object.fromEntries(allLetVariables.map((let_) => {
+        _variableReaders[let_] = _variableReader(let_)
+        return [let_, str(_variableReaders[let_]())]
+    }))
 }
-let handledKeys = {}
 let mutationCheck = () => {
     if (self.production) return
+    if (!allLetVariables) return
+    if (!globalsAfterInit) return
 
-    return // TODO
+    for (const let_ of Object.keys(globalsAfterInit)) {
+        if (let_ in handledKeys) continue
 
-    for (const nativeKey of Object.keys(nativeGlobals)) {
-        if (handledKeys[nativeKey]) continue
+        const oldValue = globalsAfterInit[let_]
+        const newValue = str(_variableReaders[let_]())
 
-        if (nativeGlobals[nativeKey] != self[nativeKey]) {
-            throw new Error('Property ' + nativeKey + ' has changed:\n  ' + str(nativeGlobals[nativeKey]) + ' != ' + str(self[nativeKey]))
-        }
-    }
-
-    for (const newKey of Object.keys(self)) {
-        if (newKey in handledKeys) continue
-        if (newKey in nativeGlobals) continue // already checked above
-
-        if (nativeGlobals[newKey] != self[newKey]) {
-            throw new Error('Property ' + newKey + ' has changed:\n  ' + str(nativeGlobals[newKey]) + ' != ' + str(self[newKey]))
+        if (oldValue != newValue) {
+            throw new Error('Property `' + let_ + '` has changed:\n  ' + oldValue + ' != ' + newValue)
         }
     }
 }
+
+let _variableReader =
+    self.production
+        ? () => {}
+        : varname => globalThis.eval(`() => (${varname})`)
+

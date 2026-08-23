@@ -19,15 +19,19 @@ let onFrame = tmp => tryCatch(() => {
         return
     }
 
+    markMut('currentScreen')
+    markMut('previousScreen')
+    markMut('isFirstFrameOfThisScreen')
     isFirstFrameOfThisScreen = previousScreen != currentScreen
     previousScreen = currentScreen
     frameLogReset()
     recalculateViewport()
     TIME = getTime()
-    perFrameValidation()
+    markMut('TIME')
     initCanvasMatrix()
     clearScreen('#111')
 
+    // DEV: In the first frame, freeze all variables
     mutationCheckInit()
 
     tmp = ({
@@ -98,6 +102,13 @@ let recalculateViewport = () => {
     canvasPixelWidth = 1 / canvasSmallSideLength
     viewportFocusSize = [canvasSmallSideLength, canvasSmallSideLength]
     ERROR_LINE_LENGTH = Math.floor(canvasSize[0] / FONT_WIDTH)
+
+    markMut('canvasSize')
+    markMut('canvasSmallSideLength')
+    markMut('canvasLargeSideLength')
+    markMut('canvasPixelWidth')
+    markMut('viewportFocusSize')
+    markMut('ERROR_LINE_LENGTH')
 }
 
 let initCanvasMatrix = () => {
@@ -170,7 +181,12 @@ let globalEval = self.eval
 
 let frameKeys
 let frameLogY = 0
-let frameLogReset = () => { frameKeys = {}; frameLogY = 0 }
+let frameLogReset = () => {
+    markMut('frameKeys')
+    markMut('frameLogY')
+    frameKeys = {};
+    frameLogY = 0;
+}
 let frameLog = (key, ...message) => {
     if (frameKeys[key]) return;
 
@@ -242,12 +258,6 @@ let startLoopAndEvents = () => {
     }
 }
 
-let perFrameValidation = () => {
-    assert(() => x === 0)
-    assert(() => y === 1)
-    assert(() => z === 2)
-}
-
 let clearScreen = (color = '#f00') => {
     ctx.fillStyle = color
     return ctx.fillRect(-10, -10, 20, 20) // returns undefined
@@ -256,6 +266,7 @@ let clearScreen = (color = '#f00') => {
 // GUI utility. Scopes a menu index variable, from which the user can choose
 let menuIndexChangeTime
 let createMenu = (options, i = 0) => {
+    markMut('menuIndexChangeTime')
     options = options.filter(o => !!o)
     menuIndexChangeTime = TIME
     return () => {
