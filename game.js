@@ -159,6 +159,12 @@ let initMainMenu = () => {
         savedGame && ['continue', () => (
             currentScreen = SCREEN_SPACE_GAME
         )],
+        ['free flight', () => (
+            currentScreen = SCREEN_FREE_FLIGHT,
+            setCameraPosition([3000, -1000, 0]),
+            setCameraRotation(-0.2, -TAU/4),
+            console.log(cameraTransform)
+        )]
     ])
 }
 let onFrameMainMenu = (isFirstFrame) => {
@@ -216,23 +222,25 @@ let undeferRenderCommands = () => {
 }
 
 // Some of these are initialized in story.js :D
-let spaceGameInertia
-let spaceGameRotationInertia
+let spaceGameInertia = vecZero()
+let spaceGameRotationInertia = matIdentity()
 let spaceGamePlanets
-let onFrameSpaceGame = isFirstFrame => {
+let onFrameSpaceGame = storyMode => isFirstFrame => {
     if (isFirstFrame) {
         spaceGamePlanets = initPlanets()
-        // Start behind planet fishy
-        updateRenderUnicorns = initUpdateRenderUnicorns()
-        // Make sure we advance these
-        advanceStory(isFirstFrame)
+        if (storyMode) {
+            // Start behind planet fishy
+            updateRenderUnicorns = initUpdateRenderUnicorns()
+            // Make sure we advance these
+            advanceStory(isFirstFrame)
+        }
         updateLandedOnPlanet(isFirstFrame)
         return
     }
 
     // Blip states (early return if one of these is truthy)
     if (
-        advanceStory(isFirstFrame)
+        storyMode && advanceStory(isFirstFrame)
         || updateLandedOnPlanet(isFirstFrame)
     ) {
         return
@@ -246,7 +254,7 @@ let onFrameSpaceGame = isFirstFrame => {
     updateControls()
     updateRenderStars()
     updateRenderPlanets()
-    updateRenderUnicorns()
+    storyMode && updateRenderUnicorns()
 
     undeferRenderCommands()
 
@@ -254,6 +262,10 @@ let onFrameSpaceGame = isFirstFrame => {
 }
 
 let starDistance = 100_000
+let range = n => (
+    assert(() => n >= 0),
+    n-- ? [...range(n), n] : []
+)
 let spaceGameStars = Array.from({ length: 1000 }, (_, i) => {
     rngSeed = i + 2 * 33
 
@@ -280,10 +292,11 @@ let updateRenderStars = () => (
 let planetTransform = 0
 let planetColor = 1
 let planetName = 2
+let planetSun
 let planetFishy
 let getPlanetSize = planet => vecLength(planet[planetTransform][1][x])
 let initPlanets = () => [
-    [
+    planetSun = [
         tform([
             [1, 1, 1],
             matScaled(450)
@@ -368,6 +381,7 @@ let initPlanets = () => [
     planet
 ))
 
+let getPlanetName = p => p == planetSun ? 'The sun' :  'Planet ' + p[planetName]
 
 let updateRenderPlanets = () => spaceGamePlanets
     .map((planet) =>
@@ -377,7 +391,7 @@ let updateRenderPlanets = () => spaceGamePlanets
             if (distance < 3000) {
                 ctx.fillStyle = '#fff'
                 ctx.font = screenFont(1)
-                ctx.fillText((planet[planetName] == 'sun' ? ' The ' : ' Planet ') + planet[planetName], ...cameraProject2d(planet[planetTransform][0]).map((coord, i) => coord + (i ? screenFontHeight/2 : planetScreenRadius)))
+                ctx.fillText(' ' + getPlanetName(planet), ...cameraProject2d(planet[planetTransform][0]).map((coord, i) => coord + (i ? screenFontHeight/2 : planetScreenRadius)))
             }
 
             ctx.fillStyle = planet[planetColor]
@@ -528,29 +542,37 @@ let updateRenderLanding = () => {
         a[1] - b[1]
     ))[0]
     let message
+    let towardsPlanet = vecSubVec(closestPlanet[planetTransform][0], cameraTransform[0])
     let dotTowardsPlanet = vecLengthSq(spaceGameInertia) > 0.01
         ? vecDotVec(
             vecNormalize(spaceGameInertia),
-            vecNormalize(vecSubVec(closestPlanet[planetTransform][0], cameraTransform[0]))
+            vecNormalize(towardsPlanet)
         )
         : -0.1
 
-    if (dotTowardsPlanet < 0) return
+    if (dotTowardsPlanet < 0 || closestPlanetDistance > 1000) return
 
+    frameLog('approaching', getPlanetName(closestPlanet))
     frameLog('speed', speed.toFixed(2) + 'km/s')
     if (speed > speedTooFastToLand) {
         message = 'too fast to land safely'
     }
+    if (closestPlanet == planetSun) {
+        message = 'cannot land safely on the sun'
+    }
     if (message) {
         frameLog('autopilot', message)
     }
-    frameLog('closest planet', closestPlanet[planetName], closestPlanetDistance.toFixed(2) + 'km')
 
-    if (closestPlanetDistance < 0) {
+    if (
+        closestPlanetDistance < 0
+        // Easy-land: if not too fast, land earlier
+        || closestPlanetDistance < 150 && speed < speedTooFastToLand
+    ) {
         // When going away from planet, do not land
         if (dotTowardsPlanet > 0) {
-            if (speed > speedTooFastToLand) {
-                die('crash landed on planet ' + closestPlanet[planetName])
+            if (speed > speedTooFastToLand || closestPlanet == planetSun) {
+                die('crash landed on ' + getPlanetName(closestPlanet))
             }
             landedOnPlanet = closestPlanet
         }

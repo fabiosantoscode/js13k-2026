@@ -31,10 +31,11 @@ let onFrame = tmp => tryCatch(() => {
     mutationCheckInit()
 
     tmp = ({
-        [SCREEN_MAIN_MENU]:onFrameMainMenu,
-        [SCREEN_SPACE_GAME]:onFrameSpaceGame,
-        [SCREEN_DEAD]:onFrameDeath,
-        [SCREEN_TESTING]:onFrameTesting,
+        [SCREEN_MAIN_MENU]: onFrameMainMenu,
+        [SCREEN_SPACE_GAME]: onFrameSpaceGame(1),
+        [SCREEN_FREE_FLIGHT]: onFrameSpaceGame(),
+        [SCREEN_DEAD]: onFrameDeath,
+        [SCREEN_TESTING]: onFrameTesting,
     })[currentScreen]
 
     if (!self.production && !tmp) {
@@ -74,6 +75,7 @@ let ERROR_LINE_LENGTH = 60
 let SCREEN_MAIN_MENU = 1
 let SCREEN_SPACE_GAME = 2
 let SCREEN_DEAD = 3
+let SCREEN_FREE_FLIGHT = 11
 let SCREEN_TESTING = 123
 
 // VARIABLES
@@ -139,11 +141,11 @@ let setCameraRotation = (rotationX, rotationY) => {
     // positionSetter is a callback because movement may depend on rotation
     cameraTransform[1] = cameraTransformInv[1] = matIdentity()
 
-    cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateY(-onFrameTestingCameraRotation))
-    cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateX(-onFrameTestingCameraRotationX))
+    cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateY(-rotationY))
+    cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateX(-rotationX))
 
-    cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateX(onFrameTestingCameraRotationX))
-    return cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateY(onFrameTestingCameraRotation))
+    cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateX(rotationX))
+    return cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateY(rotationY))
 }
 let setCameraRotation2 = (rotation) => {
     mat(rotation)

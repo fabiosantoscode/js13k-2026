@@ -327,7 +327,11 @@ let matOrthonormalize = (m) => {
     vy = (vecSubVec(vy, vecMulNum(vx, vecDotVec(vx, vy))))
     vy = vecNormalize(vy)
     //z = (z - x * (x.dot(z))                 - y * (y.dot(z)));
-    vz = [vz, vecMulNum(vx, vecDotVec(vx, vz)), vecMulNum(vy, vecDotVec(vy, vz))].reduce(vecSubVec)
+    vz = [
+        vz,
+        vecMulNum(vx, vecDotVec(vx, vz)),
+        vecMulNum(vy, vecDotVec(vy, vz))
+    ].reduce(vecSubVec)
     vz = vecNormalize(vz)
 
     assert(() => vecIsNormalized(vx))

@@ -1,11 +1,16 @@
 
+// Whatever was there at the start
+let nativeGlobals
+
+// After the first frame
 let mutationCheckInit = () => {
     if (self.production) return
     if (nativeGlobals) return
 
-    nativeGlobals = { ...self }
+    nativeGlobals = {...Object.fromEntries(Object.entries(self).map(([k, glob]) => {
+        return [k, str(glob)]
+    }))}
 }
-let nativeGlobals
 let handledKeys = {}
 let mutationCheck = () => {
     if (self.production) return
