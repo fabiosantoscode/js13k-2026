@@ -426,11 +426,12 @@ let tformProjectVec = (t, v, fov) => {
  *  assets are flat (Z is zero)
  *  point arrays are constructed in the asset code (ok to mutate)
  **/
-let tformProjectAssetVec = (t, assetT, pointX, pointY, fov) => {
-    return tformProjectVecInner(t, [
-        vecDotVec(assetT[1][x], [pointX, pointY, 0]) + assetT[0][x] + t[0][x],
-        vecDotVec(assetT[1][y], [pointX, pointY, 0]) + assetT[0][y] + t[0][y],
-        vecDotVec(assetT[1][z], [pointX, pointY, 0]) + assetT[0][z] + t[0][z],
+let tformProjectAssetVec = (assetT, pointX, pointY, fov) => {
+    // Careful here -- we're accessing a variable from another module
+    return tformProjectVecInner(cameraTransformInv, [
+        vecDotVec(assetT[1][x], [pointX, pointY, 0]) + assetT[0][x] + cameraTransformInv[0][x],
+        vecDotVec(assetT[1][y], [pointX, pointY, 0]) + assetT[0][y] + cameraTransformInv[0][y],
+        vecDotVec(assetT[1][z], [pointX, pointY, 0]) + assetT[0][z] + cameraTransformInv[0][z],
     ], fov)
 }
 let tformProjectVecInner = (t, v, fov) => {

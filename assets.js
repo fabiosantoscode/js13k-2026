@@ -16,21 +16,19 @@ JS code to turn lowercase commands to uppercase `M` commands
 */
 
 let svgProjector = s => {
-    let commandsWithTransformAndProjectCalls = s
+    let projectSvgCommands = s
         .replace(/(-?\d+),(-?\d+)/g, (_, $1, $2) => {
-            // asset X, Y, FOV
+            // Input: a vector in some SVG command (hopefully absolute)
+            // Output: code that projects this vector by calling P
             let args = [(+$1/100) - 0.5,(+$2/100) - 0.5,FOV]
-            return `$\{P(T,t,${args})}`
+            return `$\{P(t,${args})}`
         })
     // Create a function with
     // - P (tformProjectAssetVec) argument
-    // - T (cameraTransformInv) argument
     // Into a pathmaker function with
     // - t (asset tform) argument
     // Then immediately call it
-    return globalEval(
-        `(P,T)=>t=>new Path2D(\`${commandsWithTransformAndProjectCalls}\`)`
-    )(tformProjectAssetVec,cameraTransformInv)
+    return globalEval(`P=>t=>new Path2D(\`${projectSvgCommands}\`)`)(tformProjectAssetVec)
 }
 let assetCloud = `M 91,51 C 93,64 91,76 80,81 73,92 62,96 50,93 37,94 25,90 20,81 10,74 7,62 9,51 8,40 9,32 19,23 27,10 39,7 50,9 64,8 72,12 80,21 89,28 92,39 91,51 Z`
 let assetSquare = `M 0,0 100,0 100,100 0,100 Z`

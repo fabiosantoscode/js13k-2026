@@ -151,6 +151,7 @@ let onFrameTesting = isFirstFrame => {
 
 let menuMainMenu
 let initMainMenu = () => {
+    markMut('menuMainMenu')
     return menuMainMenu = createMenu([
         ['new game', () => (
             savedGame = 0,
