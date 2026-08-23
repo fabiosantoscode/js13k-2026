@@ -18,6 +18,7 @@ let story = [
             '\nYOU: ...If I can land on it'
         ],
         () => {
+            resetCameraTransform()
             setCameraPosition(
                 vecAddVec(
                     planetFishy[planetTransform][0],
@@ -38,12 +39,13 @@ let STORY_STATE_INITIAL
 let STORY_STATE_WORDS = 1
 let STORY_STATE_START_GAME = 2
 let STORY_STATE_GAME = 3
-let showWordsIndex = -1
+let showWordsIndex
 let showWordsTime = 3
 let showingTheseWordsUntil
 /** returns truthy if should skip frame */
 let advanceStory = (isFirstFrame, [wordsList, initialize, shouldGoToNext] = story[savedGame]) => {
     if (!storyState || isFirstFrame) {
+        showWordsIndex = -1
         storyState = skipStory ? STORY_STATE_START_GAME : STORY_STATE_WORDS;
     } else if (storyState == STORY_STATE_WORDS) {
         if (showWordsIndex < 0 || showingTheseWordsUntil < TIME) {
@@ -56,7 +58,6 @@ let advanceStory = (isFirstFrame, [wordsList, initialize, shouldGoToNext] = stor
         } else {
             // Done with the words
             storyState = STORY_STATE_START_GAME
-            showWordsIndex = -1
         }
     } else if (storyState == STORY_STATE_START_GAME) {
         initialize()

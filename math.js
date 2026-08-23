@@ -179,10 +179,10 @@ let assertThrows = (cb) => {
 }
 let isNum = n => typeof n == 'number'
 let isStr = s => s && s.big
-let isVec = vec => vec && vec.length === 3 && vec.every(isNum)
-let isQuat = quat => quat && quat.length === 4 && quat.every(isNum)
-let isMat = mat => mat && mat.length === 3 && mat.every(isVec)
-let isTform = tform => tform && tform.length === 2 && isVec(tform[0]) && isMat(tform[1])
+let isVec = vec => vec && vec.every && vec.length === 3 && vec.every(isNum)
+let isQuat = quat => quat && quat.every && quat.length === 4 && quat.every(isNum)
+let isMat = mat => mat && mat.every && mat.length === 3 && mat.every(isVec)
+let isTform = tform => tform && tform.every && tform.length === 2 && isVec(tform[0]) && isMat(tform[1])
 let shape = n => isNum(n) ? 1 : isVec(n) ? 2 : isMat(n) ? 3 : isTform(n) ? 4 : assertFail('unknown shape for ' + n)
 let str = n => (
     isNum(n) ? (
@@ -203,6 +203,12 @@ let numCloseTo = (a, b) => {
 }
 let numLerp = (a, b, weight) => {
     return a + (b - a) * weight
+}
+let numClamp = (n, min, max) => n < min ? min : n > max ? max : n
+let numMoveToward = (a, b, byN) => {
+    assert(() => byN > 0)
+    if (a < b) return numClamp(a + byN, a, b)
+    else return numClamp(a - byN, a, b)
 }
 let vecMulNum = (v, n) => (vec(v), num(n), [v[x] * n, v[y] * n, v[z] * n])
 let vecAddVec = (v1, v2) => (vec(v1), vec(v2), [v1[x] + v2[x], v1[y] + v2[y], v1[z] + v2[z]])

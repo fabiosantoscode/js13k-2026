@@ -111,13 +111,12 @@ let errorFont = '32px monospace'
 let screenFont = size => (size * .05) + 'px monospace'
 let screenFontHeight = 0.025
 let onError = (_, __, ___, ____, e) => {
-    if (!self.production) debugger
     fatalError(e)
     console.error(e)
 }
 let fatalError = (err) => {
+    if (ERROR) return
     ERROR = err // stop further frames
-    if (!self.production) debugger
     console.error(err)
     var bod = document.body
     // `a` is the canvas
@@ -154,6 +153,12 @@ let setCameraRotation2 = (rotation) => {
 
     cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matInvert(rotation))
 }
+let resetCameraTransform = () => (
+    markMut('cameraTransform'),
+    markMut('cameraTransformInv'),
+    cameraTransform = tformIdentity(),
+    cameraTransformInv = tformIdentity()
+)
 let cameraProject2d = v => {
     return tformProjectVec(cameraTransformInv, vec(v), FOV)
 }
@@ -249,20 +254,20 @@ let clearScreen = (color = '#f00') => {
 }
 
 // GUI utility. Scopes a menu index variable, from which the user can choose
-let menuIndexChange
+let menuIndexChangeTime
 let createMenu = (options, i = 0) => {
     options = options.filter(o => !!o)
-    menuIndexChange = TIME
+    menuIndexChangeTime = TIME
     return () => {
         if (controls.u || controls.P) {
             controls.u = controls.P = 0
             i--
-            menuIndexChange = TIME
+            menuIndexChangeTime = TIME
         }
         if (controls.d || controls.p) {
             controls.d = controls.p = 0
             i++
-            menuIndexChange = TIME
+            menuIndexChangeTime = TIME
         }
         i += options.length
         i %= options.length
@@ -274,7 +279,7 @@ let createMenu = (options, i = 0) => {
                 if (controls.B) {
                     return optCb()
                 }
-                ctx.globalAlpha = 1.2 + Math.sin((TIME - menuIndexChange) * 20)
+                ctx.globalAlpha = 1.2 + Math.sin((TIME - menuIndexChangeTime) * 20)
                 return frameLog2('> ' + optWords, 1)
             }
         }), ctx.globalAlpha = 1

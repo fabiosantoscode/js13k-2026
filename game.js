@@ -170,6 +170,7 @@ let initMainMenu = () => {
 let onFrameMainMenu = (isFirstFrame) => {
     if (isFirstFrame) {
         initMainMenu()
+        resetCameraTransform()
     }
 
     setCameraRotation2(matTransformMat(matRotateZ(0.001), matRotateY(0.0001)))
@@ -210,7 +211,7 @@ let deferRenderCommand = (layer, transform, cb, tmpDist) => (
     tmpDist > 1
         && layer.push([tmpDist, transform, cb])
 )
-let undeferRenderCommands = () => {
+let undeferRenderCommands = () =>
     allLayers.map(layer => {
         // distance sort
         layer.sort((a, b) => b[0] - a[0])
@@ -219,7 +220,6 @@ let undeferRenderCommands = () => {
 
         layer.length = 0 // clear commands
     })
-}
 
 // Some of these are initialized in story.js :D
 let spaceGameInertia = vecZero()
@@ -517,7 +517,7 @@ let updateLandedOnPlanet = (isFirstFrame) => {
         return 0
     } else {
         frameLog('FUEL SUC', landedOnPlanet[planetName])
-        frameLog('FUEL LVL', (fuel = Math.min(1, fuel + 0.0005)))
+        frameLog('FUEL LVL', (fuel = numClamp(fuel + 0.0005, 0, 1)))
         if (fuel > 0.2) landedMenu()
         return 1
     }
@@ -554,14 +554,11 @@ let updateRenderLanding = () => {
 
     frameLog('approaching', getPlanetName(closestPlanet))
     frameLog('speed', speed.toFixed(2) + 'km/s')
+
     if (speed > speedTooFastToLand) {
-        message = 'too fast to land safely'
-    }
-    if (closestPlanet == planetSun) {
-        message = 'cannot land safely on the sun'
-    }
-    if (message) {
-        frameLog('autopilot', message)
+        frameLog('autopilot', 'too fast to land safely')
+    } else if (closestPlanet == planetSun) {
+        frameLog('autopilot', 'cannot land safely on the sun')
     }
 
     if (
