@@ -211,6 +211,10 @@ let deferRenderCommand = (layer, transform, cb, tmpDist) => (
     assert(() => layer === deferLayerHud || layer === deferLayer3D),
     tmpDist = cameraDistance(transform[0]),
     tmpDist > 1
+        && vecDotVec(
+            vecNormalize(vecSubVec(transform[0], cameraTransform[0])),
+            vecMulNum(cameraTransformInv[1][z], -1)
+        ) > 0.2
         && layer.push([tmpDist, transform, cb])
 )
 let undeferRenderCommands = () =>

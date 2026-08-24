@@ -22,7 +22,7 @@ echo "<script>main()</script>" >> $OUT_FILE
 echo 'file size: '
 wc -c $OUT_FILE
 
-(cd build/ && rm -f build.zip && zip -r build.zip *)
+(cd build/ && rm -f build.zip && zip -X -9 -r build.zip *)
 
 echo 'zip file size: '
 wc -c build/build.zip

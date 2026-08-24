@@ -180,7 +180,9 @@ let shape = n => isNum(n) ? 1 : isVec(n) ? 2 : isMat(n) ? 3 : isTform(n) ? 4 : a
 let str = n => (
     isNum(n) ? (
         Math.floor(n) !== n && Math.abs(n) < 1000 && String(n).length > 6
-            ? Math.round(n * 1000) / 1000
+            ? ('' + Math.round(n * 1000) / 1000)
+                .replace(/^([0-9])/, ' $1') // add spc when no leading "-"
+                .padEnd(5, '0') // add trailing zeros
             : n
     )
     : !n || isStr(n) ? n
@@ -265,9 +267,9 @@ let matMulNum = (m, n) => {
     mat(m)
     num(n)
     return [
-        [m[x][x] * n, m[x][y] * n, m[x][z]],
-        [m[y][x] * n, m[y][y] * n, m[y][z]],
-        [m[z][x] * n, m[z][y] * n, m[z][z]],
+        [m[x][x] * n, m[x][y] * n, m[x][z] * n],
+        [m[y][x] * n, m[y][y] * n, m[y][z] * n],
+        [m[z][x] * n, m[z][y] * n, m[z][z] * n],
     ]
 }
 let matTransformAndAddVec = (m, v, v2) => {
@@ -400,14 +402,14 @@ let matFromAxisAngle = (axis, angle) => {
     return retMatrix
 }
 let matScaleNum = (m, n) => mapI3(row => mapI3(axis => m[row][axis] * n))
-let tformTransformVec = (t, v) => {
-    tform(t)
-    return [
-        vecDotVec(t[1][x], v) + t[0][0],
-        vecDotVec(t[1][y], v) + t[0][1],
-        vecDotVec(t[1][z], v) + t[0][2],
+let tformTransformVec = (t, v) => (
+    tform(t),
+    [
+        vecDotVec(t[1][x], v) + t[0][x],
+        vecDotVec(t[1][y], v) + t[0][y],
+        vecDotVec(t[1][z], v) + t[0][z],
     ]
-}
+)
 let tformTransformVecUnchecked = (t, v) => {
     return [
         vecDotVec(t[1][x], v) + t[0][x],
@@ -427,7 +429,7 @@ let tformProjectVec = (t, v, fov) => {
  *  point arrays are constructed in the asset code (ok to mutate)
  **/
 let tformProjectAssetVec = (assetT, pointX, pointY, fov) => {
-    // Careful here -- we're accessing a variable from another module
+    // Careful here -- we're accessing a variable cameraTransformInv from another module
     return tformProjectVecInner(cameraTransformInv, [
         vecDotVec(assetT[1][x], [pointX, pointY, 0]) + assetT[0][x] + cameraTransformInv[0][x],
         vecDotVec(assetT[1][y], [pointX, pointY, 0]) + assetT[0][y] + cameraTransformInv[0][y],

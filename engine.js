@@ -70,7 +70,7 @@ let canvasSize = [0, 0]
 let viewportFocusSize = [0, 0]
 let canvasSmallSideLength = 0
 let canvasLargeSideLength = 0
-let canvasPixelWidth = 0
+let canvasPixelWidth
 let FONT_HEIGHT = 32
 let FONT_WIDTH = 20
 let ERROR_LINE_LENGTH = 60
