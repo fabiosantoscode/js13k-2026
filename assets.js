@@ -15,20 +15,39 @@ JS code to turn lowercase commands to uppercase `M` commands
 })('m 46,44 3,-2 2,2 Z m 5,-15 3,-4 -0,7 Z m -6,-4 3,4 -3,3 Z')
 */
 
-let svgProjector = s => {
-    let projectSvgCommands = s
+/** Macro-ish function we could run at compile time if we really wanted.
+ * Turns SVG shapes into JS code that projects them by a transform */
+let svgProjector = (svgShape) => {
+    // turn SVG shape into JS code.
+    // Later inserted into a template string `` so we can use ${}
+    let jsShape = 'new Path2D(`' + svgShape
         .replace(/(-?\d+),(-?\d+)/g, (_, $1, $2) => {
             // Input: a vector in some SVG command (hopefully absolute)
             // Output: code that projects this vector by calling P
             let args = [(+$1/100) - 0.5,(+$2/100) - 0.5,FOV]
             return `$\{P(t,${args})}`
-        })
-    // Create a function with
-    // - P (tformProjectAssetVec) argument
-    // Into a pathmaker function with
-    // - t (asset tform) argument
-    // Then immediately call it
-    return globalEval(`P=>t=>new Path2D(\`${projectSvgCommands}\`)`)(tformProjectAssetVec)
+        }) + '`)'
+
+    // reuse variable so we can save bytes
+    shapeProjector =
+        // Create a function with
+        // - P (tformProjectAssetVec) argument
+        // Into a pathmaker function with
+        // - t (asset tform) argument
+        globalEval(
+            'P=>t=>' + jsShape
+            // Provide our eval-ed function with `tformProjectAssetVec`
+            // Because the minifier will rename `tformProjectAssetVec`
+        )(tformProjectAssetVec)
+
+    // A flat projector that doesn't transform, only moves and scales
+    // This is because I can't work out some of the matrix math and gave up
+    shapeProjector.flat =
+        globalEval(
+            'P=>t=>' + jsShape
+        )(tformProjectAssetFlatVec)
+
+    return shapeProjector
 }
 let assetCloud = `M 91,51 C 93,64 91,76 80,81 73,92 62,96 50,93 37,94 25,90 20,81 10,74 7,62 9,51 8,40 9,32 19,23 27,10 39,7 50,9 64,8 72,12 80,21 89,28 92,39 91,51 Z`
 let assetSquare = `M 0,0 100,0 100,100 0,100 Z`
@@ -36,6 +55,26 @@ let assetUnicornBody = `M 50,27 60,31 66,51 59,71 63,86 60,93 53,87 53,74 53,64 
 let assetUnicornHead = `M 26,12 49,27 70,11 50,64 Z`
 let assetUnicornHorn = `M 45,35 50,0 55,35 50,40 Z`
 let assetUnicornEyesMouth = `M 35,40 40,35 45,40 40,45 Z M 55,40 60,35 65,40 60,45 Z`
+let assetCompositeUnicorn = unicornTform => {
+    ctx.fillStyle = '#f06'
+    ctx.fill(assetUnicornBody(unicornTform))
+    ctx.fillStyle = '#f0a'
+    ctx.fill(assetUnicornHead(unicornTform))
+    ctx.fillStyle = '#fff'
+    ctx.fill(assetUnicornHorn(unicornTform))
+    ctx.fillStyle = '#ff0'
+    ctx.fill(assetUnicornEyesMouth(unicornTform))
+}
+let assetCompositeUnicornFlat = unicornTform => {
+    ctx.fillStyle = '#f06'
+    ctx.fill(assetUnicornBody.flat(unicornTform))
+    ctx.fillStyle = '#f0a'
+    ctx.fill(assetUnicornHead.flat(unicornTform))
+    ctx.fillStyle = '#fff'
+    ctx.fill(assetUnicornHorn.flat(unicornTform))
+    ctx.fillStyle = '#ff0'
+    ctx.fill(assetUnicornEyesMouth.flat(unicornTform))
+}
 let prepareAssets = () => {
     assetCloud = svgProjector(assetCloud)
     assetSquare = svgProjector(assetSquare)

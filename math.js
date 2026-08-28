@@ -15,6 +15,10 @@ let numSinCos = n => {
     cos = Math.cos(n)
     return sin = Math.sin(n)
 }
+/** How wide is a sphere at `distance`, given `fov`? */
+let numRadiusAtDistance = (radius, distance, fov) => {
+    return num(radius / (distance * fov))
+}
 
 // SHAPE FUNCTIONS
 // These functions do nothing but make sure you didn't mess up types
@@ -103,8 +107,8 @@ let testMath = () => {
     assertEq(matTransformVec(rotate90deg, vec([0, 0, -1])), vec([1, 0, 0]))
 
     assertEq(
-        tformTransformVec([[10, 10, 10], rotate90deg], vec([0, 0, -1])),
-        vec([11, 10, 10])
+        tformTransformVec([[10, 10, 10], rotate90deg], vec([0, -1, -1])),
+        vec([11, 9, 10])
     )
 
     let rotate90deg2 = matFromAxisAngle([0, -1, 0], TAU * 0.25)
@@ -141,6 +145,17 @@ let testMath = () => {
     assertEq(matRotateX(0.5), matFromAxisAngle([1, 0, 0], 0.5))
     assertEq(matRotateY(0.5), matFromAxisAngle([0, 1, 0], 0.5))
     assertEq(matRotateZ(0.5), matFromAxisAngle([0, 0, 1], 0.5))
+
+    assertEq(matOrthonormalize([
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+    ]), matIdentity())
+    assertEq(matOrthonormalize([
+        [.1, 0, 0],
+        [0, .1, 0],
+        [0, 0, .1],
+    ]), matIdentity())
 }
 let assertEq = (n1, n2) => {
     if (self.production) return
@@ -216,6 +231,8 @@ let vecIsNormalized = (v) => {
     return numCloseTo(vecLengthSq(v), 1)
 }
 let vecNormalize = (v, lenSq = vecLengthSq(v), length = Math.sqrt(lenSq)) => {
+    if (lenSq < .001) return v
+
     let norm = mapI3(axis => num(v[axis]/length))
 
     assert(() => vecIsNormalized(norm))
@@ -263,6 +280,7 @@ let matTransformVec = (m, v) => {
         vecDotVec(m[z], v),
     ]
 }
+let matFlip = (m) => matMulNum(m, -1)
 let matMulNum = (m, n) => {
     mat(m)
     num(n)
@@ -273,18 +291,10 @@ let matMulNum = (m, n) => {
     ]
 }
 let matTransformAndAddVec = (m, v, v2) => {
-    vec(v2)
     return [
-        vecDotVec(m[x], v) + v2[0],
-        vecDotVec(m[y], v) + v2[1],
-        vecDotVec(m[z], v) + v2[2],
-    ]
-}
-let matTransformAndAddVecUnchecked = (m, v, v2) => {
-    return [
-        vecDotVec(m[x], v) + v2[0],
-        vecDotVec(m[y], v) + v2[1],
-        vecDotVec(m[z], v) + v2[2],
+        vecDotVec(m[x], v) + v2[x],
+        vecDotVec(m[y], v) + v2[y],
+        vecDotVec(m[z], v) + v2[z],
     ]
 }
 // Transformed dot product
@@ -364,9 +374,9 @@ let matTransformMat = (m1, m2) => {
     mat(m2)
     return mat(mapI3(row => mapI3(col => matTDotAxisVec(m2, m1[row], col))))
 }
-let matRotateY = (angle) => matFromAxisAngle([0, 1, 0], angle)
 let matRotateX = (angle) => matFromAxisAngle([1, 0, 0], angle)
-let matRotateZ = angle => matFromAxisAngle([0,0,1], angle)
+let matRotateY = (angle) => matFromAxisAngle([0, 1, 0], angle)
+let matRotateZ = (angle) => matFromAxisAngle([0, 0, 1], angle)
 let matScaled = S => matMulNum(matIdentity(), S)
 let matLerp = (l, r, weight) => mapI3(row => vecLerp(l[row], r[row], weight))
 // https://github.com/godotengine/godot/blob/89cea143987d564363e15d207438530651d943ac/core/math/basis.cpp#L840
@@ -436,6 +446,20 @@ let tformProjectAssetVec = (assetT, pointX, pointY, fov) => {
         vecDotVec(assetT[1][z], [pointX, pointY, 0]) + assetT[0][z] + cameraTransformInv[0][z],
     ], fov)
 }
+let tformProjectAssetFlatVec = (assetT, pointX, pointY, fov) => {
+    // TODO maybe don't need tformProjectVecInner, maybe something that allocates less
+    let centerXY = tformProjectVecInner(cameraTransformInv, [
+        assetT[0][x] + cameraTransformInv[0][x],
+        assetT[0][y] + cameraTransformInv[0][y],
+        assetT[0][z] + cameraTransformInv[0][z],
+    ], fov)
+
+    // Careful here -- we're accessing a variable cameraTransformInv from another module
+    let distance = tformProjectZVec(cameraTransformInv, assetT[0])
+    let scale = numRadiusAtDistance(tformGetScale(assetT), distance, fov)
+
+    return [centerXY[x] + pointX * scale, centerXY[y] + pointY * scale]
+}
 let tformProjectVecInner = (t, v, fov) => {
     // Do z first because is necessary for perspective
     let distance = -vecDotVec(t[1][z], v)
@@ -459,14 +483,14 @@ let tformTransformTform = (tParent, tChild) => {
     tform(tChild)
 
     // scale/rot the child vec, then add parent
-    let v = matTransformAndAddVecUnchecked(tParent[1], tChild[0], tParent[0])
+    let v = matTransformAndAddVec(tParent[1], tChild[0], tParent[0])
     let m = matTransformMat(tParent[1], tChild[1])
     return [v, m]
 }
 let tformTranslateByLocalVec = (t, v) => {
     tform(t)
     vec(v)
-    v = matTransformAndAddVecUnchecked(t[1], v, t[0])
+    v = matTransformAndAddVec(t[1], v, t[0])
     return [
         v,
         t[1]

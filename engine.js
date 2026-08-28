@@ -19,6 +19,8 @@ let onFrame = tmp => tryCatch(() => {
         return
     }
 
+    markMut('cameraTransform'),
+    markMut('cameraTransformInv'),
     markMut('currentScreen')
     markMut('previousScreen')
     markMut('isFirstFrameOfThisScreen')
@@ -94,6 +96,7 @@ let currentScreen = +(locationHref).match(/screen=(\d+)/)?.[1] || SCREEN_MAIN_ME
 let cheatsOn = /cheats=1/.test(locationHref)
 let skipStory = /skipstory=1/.test(locationHref)
 let skipToFishy = /skiptofishy=1/.test(locationHref)
+let skipToUnicorn = /skiptounicorn=1/.test(locationHref)
 
 let recalculateViewport = () => {
     canvasSize = [a.width = innerWidth, a.height = innerHeight];
@@ -147,8 +150,6 @@ let setCameraPosition = (v) => {
 }
 let setCameraRotation = (rotationX, rotationY) => {
     num(rotationY), num(rotationX)
-
-    // positionSetter is a callback because movement may depend on rotation
     cameraTransform[1] = cameraTransformInv[1] = matIdentity()
 
     cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateY(-rotationY))
@@ -159,14 +160,14 @@ let setCameraRotation = (rotationX, rotationY) => {
 }
 let setCameraRotation2 = (rotation) => {
     mat(rotation)
-    // positionSetter is a callback because movement may depend on rotation
+
+    assert(() => matIsOrthonormalized(rotation))
+
     cameraTransform[1] = matTransformMat(cameraTransform[1], rotation)
 
     cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matInvert(rotation))
 }
 let resetCameraTransform = () => (
-    markMut('cameraTransform'),
-    markMut('cameraTransformInv'),
     cameraTransform = tformIdentity(),
     cameraTransformInv = tformIdentity()
 )
@@ -175,7 +176,7 @@ let cameraProject2d = v => {
 }
 let cameraDistance = (v) => tformProjectZVec(cameraTransformInv, v)
 let cameraProjectRadiusAtDistance = (distance, radius) => {
-    return radius / (distance * FOV)
+    return numRadiusAtDistance(distance, radius, FOV)
 }
 let globalEval = self.eval
 

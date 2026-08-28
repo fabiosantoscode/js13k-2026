@@ -22,13 +22,12 @@ let story = [
             setCameraPosition(
                 vecAddVec(
                     planetFishy[planetTransform][0],
-                    skipToFishy ? [0, 130, -3] : [0, 3000, -30]
+                    skipToFishy ? [0, 130, -3] : [-3000, 0, -30]
                 )
             )
-            setCameraRotation2(matRotateY(TAU/2))
-            setCameraRotation2(matRotateX(TAU*0.24))
-            spaceGameInertia = skipToFishy ? [0, -0.25, 0] : [0, -0.5, 0]
-            spaceGameRotationInertia = matRotateY(0.002)
+            setCameraRotation2(matRotateY(TAU * 0.75))
+            spaceGameInertia = skipToFishy ? [0, -0.25, 0] : [0, -0.1, 0]
+            spaceGameRotationInertia = matRotateX(0.002)
             fuel = 0.1
         },
         () => 0, // false
@@ -49,6 +48,9 @@ let advanceStory = (isFirstFrame, [wordsList, initialize, shouldGoToNext] = stor
         markMut('showWordsIndex')
         showWordsIndex = -1
         storyState = skipStory ? STORY_STATE_START_GAME : STORY_STATE_WORDS;
+        if (skipStory) {
+            storyState = STORY_STATE_START_GAME
+        }
     } else if (storyState == STORY_STATE_WORDS) {
         if (showWordsIndex < 0 || showingTheseWordsUntil < TIME) {
             showWordsIndex++

@@ -53,8 +53,8 @@ let onFrameTestingCameraRotation = 0
 let onFrameTestingCameraRotationX = 0
 let onFrameTesting = isFirstFrame => {
     if (isFirstFrame) {
-        setCameraPosition([4, 4, 13])
-        onFrameTestingCameraRotation = -0.05 * TAU
+        setCameraPosition([5, 5, 10])
+        onFrameTestingCameraRotation = -0.07 * TAU
         onFrameTestingCameraRotationX = 0.05 * TAU
     }
     onFrameTestingCameraRotation += (
@@ -100,7 +100,9 @@ let onFrameTesting = isFirstFrame => {
     }
 
     let cubeParent = matRotateY(numSinCos(TIME))
-    cubeParent = [vecZero(), matMulNum(cubeParent, 1.2 + 0.5 * Math.cos(TIME * 2.2))]
+    cubeParent = matTransformMat(matRotateZ(0.3), cubeParent)
+    cubeParent = matTransformMat(matRotateX(0.3), cubeParent)
+    cubeParent = [vec([1,1,1]), matMulNum(cubeParent, 1.2 + 0.5 * Math.cos(TIME * 2.2))]
 
     // Render a bunch of clouds
     rngSeed = 123
@@ -152,7 +154,7 @@ let onFrameTesting = isFirstFrame => {
 let menuMainMenu
 let initMainMenu = () => {
     markMut('menuMainMenu')
-    return menuMainMenu = createMenu([
+    menuMainMenu = createMenu([
         ['new game', () => (
             savedGame = 0,
             currentScreen = SCREEN_SPACE_GAME
@@ -180,7 +182,7 @@ let onFrameMainMenu = (isFirstFrame) => {
 
     menuMainMenu()
 
-    return frameLog2('press space to go to space', 0.5)
+    frameLog2('press space to go to space', 0.5)
 }
 
 let deadUntil
@@ -246,7 +248,7 @@ let onFrameSpaceGame = storyMode => isFirstFrame => {
         updateLandedOnPlanet(isFirstFrame)
         // Initialize things (first frame, after all)
         if (storyMode) {
-            updateRenderUnicorns(isFirstFrame)
+            updateRenderUnicorn(isFirstFrame)
             advanceStory(isFirstFrame)
         } else {
             setCameraPosition([3000, -1000, 0])
@@ -272,7 +274,7 @@ let onFrameSpaceGame = storyMode => isFirstFrame => {
     updateControls()
     updateRenderStars()
     updateRenderPlanets()
-    storyMode && updateRenderUnicorns()
+    storyMode && updateRenderUnicorn()
 
     undeferRenderCommands()
 
@@ -394,17 +396,18 @@ let initPlanets = () => [
         "#443",
         "fishy"
     ],
-].map(planet => (
-    (planet[planetTransform][0] = vecMulNum(planet[planetTransform][0], 0.4)),
+]
+/* .map(planet => (
+    (planet[planetTransform][0] = vecMulNum(planet[planetTransform][0], 1)),
     planet
-))
+)) */
 
 let getPlanetName = p => p == planetSun ? 'The sun' :  'Planet ' + p[planetName]
 
 let updateRenderPlanets = () => spaceGamePlanets
     .map((planet) =>
         deferRenderCommand(deferLayer3D, planet[planetTransform], (distance) => {
-            let planetScreenRadius = cameraProjectRadiusAtDistance(distance, getPlanetSize(planet))
+            let planetScreenRadius = cameraProjectRadiusAtDistance(getPlanetSize(planet), distance)
 
             if (distance < 3000) {
                 ctx.fillStyle = '#fff'
@@ -421,6 +424,9 @@ let updateRenderPlanets = () => spaceGamePlanets
                 TAU
             )
             ctx.fill()
+
+            drawTransform(planet[planetTransform])
+            drawDebugCube(planet[planetTransform])
         })
     )
 
@@ -491,41 +497,13 @@ let updateControls = () => {
         vecAxis(controls.D, controls.U, moveUp),
     ].reduce(vecAddVec)
 
-    propulsion = vecMulNum(propulsion, 0.001)
+    propulsion = vecMulNum(vecNormalize(propulsion), 0.006)
 
     spaceGameInertia = vecAddVec(spaceGameInertia, propulsion)
     setCameraPosition(vecAddVec(cameraTransform[0], spaceGameInertia))
 }
 
-let unicornPos
-let updateRenderUnicorns = (isFirstFrame) => {
-    if (isFirstFrame) {
-        markMut('unicornPos')
-        unicornPos = [0.1,0.1,-1000.1]
-    }
-
-    // TODO following the player
-
-    let unicornTransform = [unicornPos, (matScaled(500))]
-    let myForward = vec(vecNormalize(cameraTransformInv[1][z]))
-    let towardUnicornForward = vecNormalize(vec(vecSubVec(cameraTransform[0], unicornTransform[0])))
-    let unicornDotSelf = vecDotVec(myForward, towardUnicornForward)
-
-    // TODO do this dot-strategy elsewhere too?
-    if (unicornDotSelf < 0.1) return
-
-    return deferRenderCommand(deferLayer3D, unicornTransform, () => {
-        ctx.fillStyle = '#f06'
-        ctx.fill(assetUnicornBody(unicornTransform))
-        ctx.fillStyle = '#f0a'
-        ctx.fill(assetUnicornHead(unicornTransform))
-        ctx.fillStyle = '#fff'
-        ctx.fill(assetUnicornHorn(unicornTransform))
-        ctx.fillStyle = '#ff0'
-        return ctx.fill(assetUnicornEyesMouth(unicornTransform))
-    })
-}
-
+let fuel
 let landedOnPlanet
 let landedMenu
 let updateLandedOnPlanet = (isFirstFrame) => {
@@ -549,7 +527,7 @@ let updateLandedOnPlanet = (isFirstFrame) => {
     }
 }
 
-let offblastSpeed = 0.003
+let offblastSpeed = 0.006
 let offblast = () => {
     let planetCenter = landedOnPlanet[planetTransform][0]
     let playerPosition = cameraTransform[0]
