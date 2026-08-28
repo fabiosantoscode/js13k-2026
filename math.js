@@ -211,6 +211,8 @@ let str = n => (
 let numCloseTo = (a, b) => {
     return Math.abs(num(a) - num(b)) < 0.02
 }
+let numSmallOrZero = n =>
+    Math.abs(n) > .1 ? n : 0
 let numLerp = (a, b, weight) => {
     return a + (b - a) * weight
 }

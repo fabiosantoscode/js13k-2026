@@ -1,9 +1,9 @@
-let orZero = n => n?1:0
-let vecAxis = (neg, pos, v) =>
-    vecAddVec(
-        vecMulNum(v, orZero(neg)),
-        vecMulNum(vecNegative(v), orZero(pos))
+let readControlAxis = (neg, pos, v) => {
+    return vecAddVec(
+        vecMulNum(v, readControl(neg)),
+        vecMulNum(vecNegative(v), readControl(pos))
     )
+}
 
 let onFrameDemo = isFirstFrame => {
     if (isFirstFrame) {
@@ -14,9 +14,9 @@ let onFrameDemo = isFirstFrame => {
     setCameraRotation(demoRotationX, demoRotation)
 
     let cameraMovement = vec([
-        orZero(controls.l) * -1 + orZero(controls.r),
-        orZero(controls.D) * -1 + orZero(controls.U),
-        orZero(controls.u) * -1 + orZero(controls.d),
+        readControl('l') * -1 + readControl('r'),
+        readControl('D') * -1 + readControl('U'),
+        readControl('u') * -1 + readControl('d'),
     ])
     cameraMovement = vecMulNum(cameraMovement, 0.2)
     setCameraPosition(vecAddVec(cameraTransform[0], cameraMovement))
@@ -58,18 +58,18 @@ let onFrameTesting = isFirstFrame => {
         onFrameTestingCameraRotationX = 0.05 * TAU
     }
     onFrameTestingCameraRotation += (
-        orZero(controls.C) * -1 + orZero(controls.c)
+        readControl('C') * -1 + readControl('c')
     ) * 0.01
     onFrameTestingCameraRotationX += (
-        orZero(controls.D) * -1 + orZero(controls.U)
+        readControl('D') * -1 + readControl('U')
     ) * 0.01
 
     setCameraRotation(onFrameTestingCameraRotationX, onFrameTestingCameraRotation)
 
     let cameraMovement = vec([
-        orZero(controls.l) * -1 + orZero(controls.r),
-        0, // orZero(controls.D) * -1 + orZero(controls.U),
-        orZero(controls.u) * -1 + orZero(controls.d),
+        readControl('l') * -1 + readControl('r'),
+        0, // readControl('D') * -1 + readControl('U'),
+        readControl('u') * -1 + readControl('d'),
     ])
     cameraMovement = matTransformVec(cameraTransform[1], cameraMovement)
     cameraMovement = vecMulNum(cameraMovement, 0.2)
@@ -155,16 +155,8 @@ let menuMainMenu
 let initMainMenu = () => {
     markMut('menuMainMenu')
     menuMainMenu = createMenu([
-        ['new game', () => (
-            savedGame = 0,
-            currentScreen = SCREEN_SPACE_GAME
-        )],
-        savedGame && ['continue', () => (
-            currentScreen = SCREEN_SPACE_GAME
-        )],
-        ['free flight', () => (
-            currentScreen = SCREEN_FREE_FLIGHT
-        )]
+        ['new game', () => (currentScreen = SCREEN_SPACE_GAME)],
+        ['free flight', () => (currentScreen = SCREEN_FREE_FLIGHT)]
     ])
 }
 let onFrameMainMenu = (isFirstFrame) => {
@@ -205,29 +197,6 @@ let die = reason => {
     currentScreen = SCREEN_DEAD
 }
 
-// For sorted rendering!
-let deferLayerHud = []
-let deferLayer3D = []
-let allLayers = [deferLayerHud, deferLayer3D]
-let deferRenderCommand = (layer, transform, cb, tmpDist) => (
-    assert(() => layer === deferLayerHud || layer === deferLayer3D),
-    tmpDist = cameraDistance(transform[0]),
-    tmpDist > 1
-        && vecDotVec(
-            vecNormalize(vecSubVec(transform[0], cameraTransform[0])),
-            vecMulNum(cameraTransformInv[1][z], -1)
-        ) > 0.2
-        && layer.push([tmpDist, transform, cb])
-)
-let undeferRenderCommands = () =>
-    allLayers.map(layer => {
-        // distance sort
-        layer.sort((a, b) => b[0] - a[0])
-
-        layer.map(a => a[2](a[0]))
-
-        layer.length = 0 // clear commands
-    })
 
 // Some of these are initialized in story.js :D
 let spaceGameInertia
@@ -251,18 +220,19 @@ let onFrameSpaceGame = storyMode => isFirstFrame => {
             updateRenderUnicorn(isFirstFrame)
             advanceStory(isFirstFrame)
         } else {
-            setCameraPosition([3000, -1000, 0])
+            setCameraPosition([5000, -300, 0])
             setCameraRotation(-0.2, -TAU/4)
         }
-        undeferRenderCommands()
         return
     }
 
+    storyMode && (
+        advanceStory(isFirstFrame),
+        updateRenderUnicorn()
+    )
+
     // Blip states (early return if one of these is truthy)
-    if (
-        storyMode && advanceStory(isFirstFrame)
-        || updateLandedOnPlanet(isFirstFrame)
-    ) {
+    if (updateLandedOnPlanet(isFirstFrame)) {
         return
     }
 
@@ -274,11 +244,8 @@ let onFrameSpaceGame = storyMode => isFirstFrame => {
     updateControls()
     updateRenderStars()
     updateRenderPlanets()
-    storyMode && updateRenderUnicorn()
 
-    undeferRenderCommands()
-
-    updateRenderLanding()
+    return updateRenderLanding()
 }
 
 let starDistance = 100_000
@@ -321,16 +288,16 @@ let initPlanets = () => [
             [1, 1, 1],
             matScaled(450)
         ]),
-        '#ff8c00',
-        'sun',
+        '#f62',
+        'Sun',
     ],
     [
         tform([
             [ -1560, -27, 2520 ],
             matScaled(144),
         ]),
-        "#fff59d",
-        "zero"
+        "#332266",
+        "Zero"
     ],
     [
         tform([
@@ -338,7 +305,7 @@ let initPlanets = () => [
             matScaled(93),
         ]),
         "#eac1e4",
-        "one"
+        "One"
     ],
     [
         tform([
@@ -346,7 +313,7 @@ let initPlanets = () => [
             matScaled(15),
         ]),
         "#daffe5",
-        "gooner"
+        "Gooner"
     ],
     [
         tform([
@@ -354,7 +321,7 @@ let initPlanets = () => [
             matScaled(84),
         ]),
         "#ffb99a",
-        "six"
+        "Six"
     ],
     [
         tform([
@@ -362,7 +329,7 @@ let initPlanets = () => [
             matScaled(45),
         ]),
         "#91eaff",
-        "seven"
+        "Seven"
     ],
     [
         tform([
@@ -370,7 +337,7 @@ let initPlanets = () => [
             matScaled(16),
         ]),
         "#89ff84",
-        "goonest"
+        "Goonest"
     ],
     [
         tform([
@@ -378,15 +345,15 @@ let initPlanets = () => [
             matScaled(14),
         ]),
         "#9fff86",
-        "yes"
+        "Yes"
     ],
     [
         tform([
             [ -1540, -444, 1730 ],
             matScaled(81),
         ]),
-        '#ffff93',
-        "no"
+        '#c45',
+        "No"
     ],
     planetFishy = [
         tform([
@@ -394,19 +361,15 @@ let initPlanets = () => [
             matScaled(99),
         ]),
         "#443",
-        "fishy"
+        "Fishy"
     ],
 ]
-/* .map(planet => (
-    (planet[planetTransform][0] = vecMulNum(planet[planetTransform][0], 1)),
-    planet
-)) */
 
 let getPlanetName = p => p == planetSun ? 'The sun' :  'Planet ' + p[planetName]
 
 let updateRenderPlanets = () => spaceGamePlanets
     .map((planet) =>
-        deferRenderCommand(deferLayer3D, planet[planetTransform], (distance) => {
+        deferRenderCommand(planet[planetTransform], (distance) => {
             let planetScreenRadius = cameraProjectRadiusAtDistance(getPlanetSize(planet), distance)
 
             if (distance < 3000) {
@@ -457,13 +420,13 @@ let updateControls = () => {
     assert(() => matIsOrthonormalized(cameraTransformInv[1]))
     assert(() => matIsOrthonormalized(cameraTransform[1]))
 
-    let pitch = orZero(controls.p) * -1 + orZero(controls.P)
+    let pitch = readControl('p') * -1 + readControl('P')
     let matPitch = matFromAxisAngle(cameraTransformInv[1][x], pitch * 0.0001)
 
-    let yaw = orZero(controls.c) * -1 + orZero(controls.C)
+    let yaw = readControl('c') * -1 + readControl('C')
     let matYaw = matFromAxisAngle(cameraTransformInv[1][y], yaw * 0.0001)
 
-    let roll = orZero(controls.S) * -1 + orZero(controls.s)
+    let roll = readControl('S') * -1 + readControl('s')
     let matRoll = matFromAxisAngle(cameraTransformInv[1][z], roll * 0.0001)
 
     spaceGameRotationInertia = [
@@ -478,7 +441,7 @@ let updateControls = () => {
         spaceGameRotationInertia = matLerp(spaceGameRotationInertia, matIdentity(), 0.002)
     }
 
-    if (controls.B) {
+    if (readControl('B')) {
         spaceGameRotationInertia = matLerp(spaceGameRotationInertia, matIdentity(), 0.1)
         if (cheatsOn) {
             spaceGameInertia = vecZero()
@@ -492,9 +455,9 @@ let updateControls = () => {
     let moveLeft = cameraTransformInv[1][x]
 
     let propulsion = [
-        vecAxis(controls.u, controls.d, moveForward),
-        vecAxis(controls.r, controls.l, moveLeft),
-        vecAxis(controls.D, controls.U, moveUp),
+        readControlAxis('u', 'd', moveForward),
+        readControlAxis('r', 'l', moveLeft),
+        readControlAxis('D', 'U', moveUp),
     ].reduce(vecAddVec)
 
     propulsion = vecMulNum(vecNormalize(propulsion), 0.006)
@@ -556,7 +519,6 @@ let updateRenderLanding = () => {
 
     if (dotTowardsPlanet < 0 || closestPlanetDistance > 1000) return
 
-    frameLog('approaching', getPlanetName(closestPlanet))
     frameLog('speed', speed.toFixed(2) + 'km/s')
 
     if (closestPlanet == planetSun) {

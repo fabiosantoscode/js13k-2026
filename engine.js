@@ -32,6 +32,7 @@ let onFrame = tmp => tryCatch(() => {
     markMut('TIME')
     initCanvasMatrix()
     clearScreen('#111')
+    updateControlsWithGamepad()
 
     // DEV: In the first frame, freeze all variables
     mutationCheckInit()
@@ -49,6 +50,8 @@ let onFrame = tmp => tryCatch(() => {
     }
 
     tmp(isFirstFrameOfThisScreen)
+
+    undeferRenderCommands()
 
     mutationCheck()
 }, fatalError)
@@ -93,6 +96,7 @@ let TIME = getTime()
 // Put these together to benefit from zip
 let locationHref = '' + location
 let currentScreen = +(locationHref).match(/screen=(\d+)/)?.[1] || SCREEN_MAIN_MENU
+let currentStoryBeat = +(locationHref).match(/story=(\d+)/)?.[1] || 0
 let cheatsOn = /cheats=1/.test(locationHref)
 let skipStory = /skipstory=1/.test(locationHref)
 let skipToFishy = /skiptofishy=1/.test(locationHref)
@@ -181,33 +185,57 @@ let cameraProjectRadiusAtDistance = (distance, radius) => {
 let globalEval = self.eval
 
 let frameKeys
-let frameLogY = 0
+let currentTextY = 0
 let frameLogReset = () => {
     markMut('frameKeys')
-    markMut('frameLogY')
+    markMut('currentTextY')
     frameKeys = {};
-    frameLogY = 0;
+    currentTextY = 0;
 }
 let frameLog = (key, ...message) => {
     if (frameKeys[key]) return;
 
-    frameKeys[key] = true
+    frameKeys[key] = 1
 
     frameLog2(key + ': ' + message.map(str).join(" "))
 }
-let frameLog2 = (message, size) => {
-    frameLogY += 0.1
-    drawText(message, .001, 0.101 + frameLogY, '#200', size)
-    return drawText(message, 0, 0.1 + frameLogY, '#fff', size)
-}
-let drawText = (words, x, y, fillStyle='#fff', size = 1) => {
+let frameLog2 = (message, size) => deferDrawUICommand(() => {
+    message = message.split('\n')
+    _drawText(message, .101, 0.101 + currentTextY, '#200', size)
+    _drawText(message, 0.1, 0.1 + currentTextY, '#fff', size)
+    return (currentTextY += 0.1 * message.length)
+})
+let _drawText = (lines, x, y, fillStyle='#fff', size = 1) => {
     ctx.fillStyle = fillStyle
     ctx.font = screenFont(size)
-    return words.split('\n').map((word, i) => {
+    return lines.map((word, i) => {
         ctx.fillText(word, x, y + (0.1 * i))
     })
 }
-// (initialize your global variables here)
+
+// For sorted rendering!
+let deferLayerHud = []
+let deferLayer3D = []
+let deferRenderCommand = (transform, cb, tmpDist) => (
+    assert(() => deferLayer3D === deferLayerHud || deferLayer3D === deferLayer3D),
+    tmpDist = cameraDistance(transform[0]),
+    tmpDist > 1
+        && vecDotVec(
+            vecNormalize(vecSubVec(transform[0], cameraTransform[0])),
+            vecMulNum(cameraTransformInv[1][z], -1)
+        ) > 0.2
+        && deferLayer3D.push([tmpDist, transform, cb])
+)
+let deferDrawUICommand = cb => deferLayerHud.push(cb)
+let undeferRenderCommands = () => {
+    // distance sort
+    deferLayer3D.sort((a, b) => b[0] - a[0])
+    deferLayer3D.map(a => a[2](a[0]))
+    deferLayerHud.map(cb => cb())
+    deferLayer3D.length = deferLayerHud.length = 0
+    markMut('deferLayer3D')
+    markMut('deferLayerHud')
+}
 
 // update u,l,d,r globals when an arrow key/wasd/zqsd is pressed or released
 let keyCodesToControls = {
@@ -234,7 +262,38 @@ let keyCodesToControls = {
     32: 'B', // space: brake
     16: 'b', // shift: release "babeety"
 }
-let controls = {}
+// https://w3c.github.io/gamepad/#remapping
+let gamepadAxesToControls = [
+    'r',
+    'd',
+    'c',
+    'p',
+]
+let gamepadButtonsToControls = Object.assign([], {
+    // Cross (bottom face button)
+    0: 'B',
+    // L1, R1
+    4: 's',
+    5: 'S',
+    6: 'U',
+    7: 'D',
+    // D-pad
+    12: 'u',
+    13: 'd',
+    14: 'l',
+    15: 'r',
+})
+let updateControlsWithGamepad = () =>
+    navigator.getGamepads?.().map(gamepad => {
+        gamepadAxesToControls
+            .map((axisControl, axisIdx) => gamepadControls[axisControl] = gamepad?.axes[axisIdx])
+        gamepadButtonsToControls
+            .map((buttonControl, buttonIdx) => gamepadControls[buttonControl] = numSmallOrZero(gamepad?.buttons[buttonIdx]?.value))
+    })
+let keyControls = {}
+let gamepadControls = {}
+let readControl = key =>
+    numSmallOrZero(gamepadControls[key]) || keyControls[key] || 0
 
 let FRAME_INTERVAL = 16
 let FRAME_INTERVAL_MS_INV = 63 // 62.5 actually
@@ -242,7 +301,7 @@ let FRAME_INTERVAL_MS_INV = 63 // 62.5 actually
 let startLoopAndEvents = () => {
     onkeydown = onkeyup = e => {
       if (keyCodesToControls[e.which]) {
-        controls[keyCodesToControls[e.which]] = +!!e.type[5]
+        keyControls[keyCodesToControls[e.which]] = +!!e.type[5]
         e.preventDefault()
       }
     }
@@ -266,29 +325,25 @@ let clearScreen = (color = '#f00') => {
 
 // GUI utility. Scopes a menu index variable, from which the user can choose
 let menuIndexChangeTime
-let createMenu = (options, i = 0) => {
+let createMenu = (options, i = 0, hasMovedBefore, hasMovementNow) => {
     markMut('menuIndexChangeTime')
     options = options.filter(o => !!o)
     menuIndexChangeTime = TIME
     return () => {
-        if (controls.u || controls.P) {
-            controls.u = controls.P = 0
-            i--
+        hasMovementNow =
+            (readControl('u') + readControl('P')) * -1
+            + (readControl('d') + readControl('p'))
+        if (!hasMovedBefore && hasMovementNow) {
+            i = ((hasMovementNow > 0 ? i + 1 : i - 1) + options.length) % options.length
             menuIndexChangeTime = TIME
         }
-        if (controls.d || controls.p) {
-            controls.d = controls.p = 0
-            i++
-            menuIndexChangeTime = TIME
-        }
-        i += options.length
-        i %= options.length
+        hasMovedBefore = hasMovementNow
         return options.map(([optWords, optCb], optI) => {
             if (optI - i) {
                 ctx.globalAlpha = 1
                 return frameLog2('  ' + optWords, 1)
             } else {
-                if (controls.B) {
+                if (readControl('B')) {
                     return optCb()
                 }
                 ctx.globalAlpha = 1.2 + Math.sin((TIME - menuIndexChangeTime) * 20)
