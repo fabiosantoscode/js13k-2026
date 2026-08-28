@@ -1,7 +1,7 @@
 #!/bin/bash
 
 HTML_FILE="index-production.html"
-FILES="prelude.js math.js assets.js engine.js game.js story.js mut-check.js"
+FILES="prelude.js math.js assets.js engine.js game.js story.js unicorn.js mut-check.js"
 OUT_FILE="build/index.html"
 mkdir -p build
 

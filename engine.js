@@ -4,7 +4,7 @@
 /** @type {CanvasRenderingContext2D} */
 let ctx=a.getContext`2d`
 
-let main = () => tryCatch(() => {
+let main = self.main = () => tryCatch(() => {
     if (!self.production) {
         testMath()
     }
@@ -298,4 +298,3 @@ let createMenu = (options, i = 0) => {
     }
 }
 
-self.main = main

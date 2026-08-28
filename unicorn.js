@@ -41,8 +41,7 @@ let updateRenderUnicorn = isFirstFrame => {
 
     // make sure not to render our unicorn when he's behind. He glitches out
     vecTowardsUnicorn = vec(vecNormalize(vecSubVec(cameraTransform[0], unicornTform[0])))
-    unicornDotMe = vecDotVec(cameraTransformInv[1][z], vecTowardsUnicorn)
-    if (unicornDotMe < 0.1) return
+    if (vecDotVec(cameraTransformInv[1][z], vecTowardsUnicorn) < 0.1) return
 
     unicornTform[1] = matMulNum(matIdentity(), unicornScale)
 
