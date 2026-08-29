@@ -155,7 +155,7 @@ let menuMainMenu
 let initMainMenu = () => {
     markMut('menuMainMenu')
     menuMainMenu = createMenu([
-        ['new game', () => (currentScreen = SCREEN_SPACE_GAME)],
+        ['play', () => (currentScreen = SCREEN_SPACE_GAME)],
         ['free flight', () => (currentScreen = SCREEN_FREE_FLIGHT)]
     ])
 }
@@ -175,6 +175,7 @@ let onFrameMainMenu = (isFirstFrame) => {
     menuMainMenu()
 
     frameLog2('press space to go to space', 0.5)
+    frameLog2('use controller or keyboard WASD&Arrows', 0.5)
 }
 
 let deadUntil
@@ -191,6 +192,19 @@ let onFrameDeath = (isFirstFrame) => {
 
     if (deadUntil < TIME) { currentScreen = SCREEN_MAIN_MENU }
 }
+let onFrameEndgame = (isFirstFrame) => {
+    // Let's reuse variable `deadUntil`
+    if (isFirstFrame) {
+        markMut('deadUntil')
+        deadUntil = TIME + 20
+    }
+
+    clearScreen('#022')
+
+    frameLog2('You go to the doctor. It turns out\nthe UNICORN was a manifestation of\nyour regret.\n\nYou feel very disappointed, though\nnot very surprised.\n\n~ THE END ~')
+
+    if (deadUntil < TIME) { currentScreen = SCREEN_MAIN_MENU }
+}
 let die = reason => {
     markMut('deadReason')
     deadReason = reason
@@ -202,37 +216,40 @@ let die = reason => {
 let spaceGameInertia
 let spaceGameRotationInertia
 let spaceGamePlanets
+let spaceGamePlanetsInitialLength
 let onFrameSpaceGame = storyMode => isFirstFrame => {
     if (isFirstFrame) {
         markMut('spaceGamePlanets')
+        markMut('spaceGamePlanetsInitialLength')
         markMut('planetSun')
         markMut('planetFishy')
         spaceGamePlanets = initPlanets()
+        spaceGamePlanetsInitialLength = spaceGamePlanets.length
 
         markMut('spaceGameInertia')
         spaceGameInertia = vecZero()
         markMut('spaceGameRotationInertia')
         spaceGameRotationInertia = matIdentity()
 
-        updateLandedOnPlanet(isFirstFrame)
+        updateLandedOnPlanet(storyMode, isFirstFrame)
         // Initialize things (first frame, after all)
         if (storyMode) {
             updateRenderUnicorn(isFirstFrame)
             advanceStory(isFirstFrame)
         } else {
             setCameraPosition([5000, -300, 0])
-            setCameraRotation(-0.2, -TAU/4)
+            setCameraRotation(-0.12, TAU * -.23)
+            spaceGameInertia = [0.1, 0.1, -0.1]
         }
         return
     }
 
-    storyMode && (
-        advanceStory(isFirstFrame),
-        updateRenderUnicorn()
-    )
+    if (storyMode && (advanceStory(isFirstFrame) || updateRenderUnicorn(isFirstFrame))) {
+        return
+    }
 
     // Blip states (early return if one of these is truthy)
-    if (updateLandedOnPlanet(isFirstFrame)) {
+    if (updateLandedOnPlanet(storyMode, isFirstFrame)) {
         return
     }
 
@@ -286,58 +303,10 @@ let initPlanets = () => [
     planetSun = [
         tform([
             [1, 1, 1],
-            matScaled(450)
+            matScaled(700)
         ]),
         '#f62',
         'Sun',
-    ],
-    [
-        tform([
-            [ -1560, -27, 2520 ],
-            matScaled(144),
-        ]),
-        "#332266",
-        "Zero"
-    ],
-    [
-        tform([
-            [ -3470, -376, -850 ],
-            matScaled(93),
-        ]),
-        "#eac1e4",
-        "One"
-    ],
-    [
-        tform([
-            [ 4190, -100, 2450 ],
-            matScaled(15),
-        ]),
-        "#daffe5",
-        "Gooner"
-    ],
-    [
-        tform([
-            [ 2890, 295, 2440 ],
-            matScaled(84),
-        ]),
-        "#ffb99a",
-        "Six"
-    ],
-    [
-        tform([
-            [ 3060, 257, 4360 ],
-            matScaled(45),
-        ]),
-        "#91eaff",
-        "Seven"
-    ],
-    [
-        tform([
-            [ -4480, 254, -1620 ],
-            matScaled(16),
-        ]),
-        "#89ff84",
-        "Goonest"
     ],
     [
         tform([
@@ -349,21 +318,61 @@ let initPlanets = () => [
     ],
     [
         tform([
-            [ -1540, -444, 1730 ],
+            [ -3470, -376, -850 ],
             matScaled(81),
         ]),
         '#c45',
         "No"
     ],
+    [
+        tform([
+            [ -1700, 0, 2700 ],
+            matScaled(500),
+        ]),
+        "#eac1e4",
+        "One"
+    ],
+    [
+        tform([
+            [ 3060, 300, 4360 ],
+            matScaled(300),
+        ]),
+        "#91eaff",
+        "Seven"
+    ],
+    [
+        tform([
+            [ 2890, 290, 2440 ],
+            matScaled(90),
+        ]),
+        "#ffb99a",
+        "Six"
+    ],
+    [
+        tform([
+            [ -1560, -27, -2520 ],
+            matScaled(144),
+        ]),
+        "#332266",
+        "Zero"
+    ],
     planetFishy = [
         tform([
-            [ 4430, 443, -4920 ],
+            [ 3333, 443, -3333 ],
             matScaled(99),
         ]),
         "#443",
         "Fishy"
     ],
-]
+].filter(planet => !planetsConsumed.includes(planet[planetName]))
+let planetsConsumed
+let consumePlanet = (planet) => {
+    planetsConsumed.push(planet[planetName])
+    spaceGamePlanets = initPlanets()
+}
+let getConsumedPlanets = () => {
+    return planetsConsumed.length
+}
 
 let getPlanetName = p => p == planetSun ? 'The sun' :  'Planet ' + p[planetName]
 
@@ -372,7 +381,7 @@ let updateRenderPlanets = () => spaceGamePlanets
         deferRenderCommand(planet[planetTransform], (distance) => {
             let planetScreenRadius = cameraProjectRadiusAtDistance(getPlanetSize(planet), distance)
 
-            if (distance < 3000) {
+            if (distance < 999999) {
                 ctx.fillStyle = '#fff'
                 ctx.font = screenFont(1)
                 ctx.fillText(' ' + getPlanetName(planet), ...cameraProject2d(planet[planetTransform][0]).map((coord, i) => coord + (i ? screenFontHeight/2 : planetScreenRadius)))
@@ -462,14 +471,18 @@ let updateControls = () => {
 
     propulsion = vecMulNum(vecNormalize(propulsion), 0.006)
 
-    spaceGameInertia = vecAddVec(spaceGameInertia, propulsion)
+    spaceGameInertia = vecLimitLength(
+        vecAddVec(spaceGameInertia, propulsion),
+        // speed limit
+        5
+    )
     setCameraPosition(vecAddVec(cameraTransform[0], spaceGameInertia))
 }
 
 let fuel
 let landedOnPlanet
 let landedMenu
-let updateLandedOnPlanet = (isFirstFrame) => {
+let updateLandedOnPlanet = (storyMode, isFirstFrame) => {
     if (isFirstFrame) {
         markMut('fuel')
         markMut('landedMenu')
@@ -477,7 +490,7 @@ let updateLandedOnPlanet = (isFirstFrame) => {
         fuel = 1
 
         landedMenu = createMenu([
-            ['offblast now', offblast],
+            ['offblast now', offblast(storyMode)],
         ])
         return landedOnPlanet = 0
     } else if (!landedOnPlanet) {
@@ -490,12 +503,17 @@ let updateLandedOnPlanet = (isFirstFrame) => {
     }
 }
 
-let offblastSpeed = 0.006
-let offblast = () => {
+let offblastSpeed = 0.003
+let offblast = storyMode => () => {
     let planetCenter = landedOnPlanet[planetTransform][0]
     let playerPosition = cameraTransform[0]
     let awayFromPlanet = vecSubVec(playerPosition, planetCenter)
-    spaceGameInertia = vecMulNum(awayFromPlanet, offblastSpeed)
+    if (storyMode) {
+        // CONSUME THE PLANET OMG
+        consumePlanet(landedOnPlanet)
+        resetUnicornToPlanet(planetCenter)
+    }
+    spaceGameInertia = vecMulNum(vecNormalize(awayFromPlanet), offblastSpeed)
 
     // Fuck off
 

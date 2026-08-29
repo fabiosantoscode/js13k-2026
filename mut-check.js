@@ -38,9 +38,15 @@ let mutationCheckInit = () => {
 
     globalsAfterInit = Object.fromEntries(allLetVariables.map((let_) => {
         _variableReaders[let_] = _variableReader(let_)
-        return [let_, str(_variableReaders[let_]())]
+        return [let_, mutationComparable(_variableReaders[let_]())]
     }))
 }
+let mutationComparable = self.production
+    ? () => true
+    : (a) => {
+        if (typeof a === 'object' && a) return str(a)
+        return a // everything else can be compared with ===
+    }
 let mutationCheck = () => {
     if (self.production) return
     if (!allLetVariables) return
@@ -50,7 +56,7 @@ let mutationCheck = () => {
         if (let_ in handledKeys) continue
 
         const oldValue = globalsAfterInit[let_]
-        const newValue = str(_variableReaders[let_]())
+        const newValue = mutationComparable(_variableReaders[let_]())
 
         if (oldValue != newValue) {
             throw new Error('Property `' + let_ + '` has changed:\n  ' + oldValue + ' != ' + newValue)

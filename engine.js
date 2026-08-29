@@ -8,6 +8,7 @@ let main = self.main = () => tryCatch(() => {
     if (!self.production) {
         testMath()
     }
+    resetToGameStart()
     prepareAssets()
     startLoopAndEvents()
 }, fatalError)
@@ -29,7 +30,6 @@ let onFrame = tmp => tryCatch(() => {
     frameLogReset()
     recalculateViewport()
     TIME = getTime()
-    markMut('TIME')
     initCanvasMatrix()
     clearScreen('#111')
     updateControlsWithGamepad()
@@ -42,6 +42,7 @@ let onFrame = tmp => tryCatch(() => {
         [SCREEN_SPACE_GAME]: onFrameSpaceGame(1),
         [SCREEN_FREE_FLIGHT]: onFrameSpaceGame(),
         [SCREEN_DEAD]: onFrameDeath,
+        [SCREEN_ENDGAME]: onFrameEndgame,
         [SCREEN_TESTING]: onFrameTesting,
     })[currentScreen]
 
@@ -84,13 +85,16 @@ let ERROR_LINE_LENGTH = 60
 let SCREEN_MAIN_MENU = 1
 let SCREEN_SPACE_GAME = 2
 let SCREEN_DEAD = 3
+let SCREEN_ENDGAME = 4
 let SCREEN_FREE_FLIGHT = 11
 let SCREEN_TESTING = 123
 
 // VARIABLES
 
 let ERROR
-let getTime = () => new Date * .001
+let getTime = () => (new Date - PAUSED_LOST_TIME) * .001
+let PAUSED_LOST_TIME = 0 // keep track of amount of time paused
+let PAUSE_TIME // keep track of amount of time paused
 let TIME = getTime()
 
 // Put these together to benefit from zip
@@ -205,6 +209,7 @@ let frameLog2 = (message, size) => deferDrawUICommand(() => {
     _drawText(message, 0.1, 0.1 + currentTextY, '#fff', size)
     return (currentTextY += 0.1 * message.length)
 })
+let frameLogAdvanceXYWidthHeight = (widthMultiplier) => [0.1, (currentTextY += 0.1) - 0.1, 0.8 * widthMultiplier, 0.1]
 let _drawText = (lines, x, y, fillStyle='#fff', size = 1) => {
     ctx.fillStyle = fillStyle
     ctx.font = screenFont(size)
@@ -286,58 +291,94 @@ let gamepadButtonsToControls = Object.assign([], {
 let updateControlsWithGamepad = () =>
     navigator.getGamepads?.().map(gamepad => {
         gamepadAxesToControls
-            .map((axisControl, axisIdx) => gamepadControls[axisControl] = gamepad?.axes[axisIdx])
+            .map((axisControl, axisIdx) => (gamepadAxes[axisControl] = gamepad?.axes[axisIdx]))
         gamepadButtonsToControls
-            .map((buttonControl, buttonIdx) => gamepadControls[buttonControl] = numSmallOrZero(gamepad?.buttons[buttonIdx]?.value))
+            .map((buttonControl, buttonIdx) => (gamepadButtons[buttonControl] = gamepad?.buttons[buttonIdx]?.value))
     })
+let gamepadAxes = {}
 let keyControls = {}
-let gamepadControls = {}
+let gamepadButtons = {}
 let readControl = key =>
-    numSmallOrZero(gamepadControls[key]) || keyControls[key] || 0
+    numSmallOrZero(gamepadAxes[key]) ||
+    numSmallOrZero(gamepadButtons[key]) ||
+    numSmallOrZero(keyControls[key])
+
+let requestFullscreenForCanvas = (userEvent) =>
+    // a is the canvas
+    userEvent && !document.fullscreenElement && a.requestFullscreen?.()?.catch(() => {})
 
 let FRAME_INTERVAL = 16
 let FRAME_INTERVAL_MS_INV = 63 // 62.5 actually
 
 let startLoopAndEvents = () => {
-    onkeydown = onkeyup = e => {
-      if (keyCodesToControls[e.which]) {
-        keyControls[keyCodesToControls[e.which]] = +!!e.type[5]
-        e.preventDefault()
-      }
-    }
+    onclick = requestFullscreenForCanvas
+    onkeydown = onKeyDownKeyUp(1)
+    onkeyup = onKeyDownKeyUp(0)
+    onblur = stopLoop
+    onfocus = runLoop
 
-    // start game loop (60fps)
-    // the canvas is cleared and adjusted to fullscreen at each frame
-    // draw each screen in the switch's cases
-    // in each screen, you can make key presses update the game state
-    // ex: "press enter to open the menu" => `if(allKeys[13])s=1;`
-    setInterval(onFrame, FRAME_INTERVAL)
+    markMut('loop')
+    markMut('TIME')
+    markMut('PAUSE_TIME')
+    markMut('PAUSED_LOST_TIME')
+    PAUSE_TIME = getTime() // a usable valid PAUSE_TIME for our runLoop
+    runLoop()
 
     if (!self.production) {
         onerror = onError
     }
 }
 
-let clearScreen = (color = '#f00') => {
+// This is a little state machine.
+// There either is a loop (setInterval handle) or there isn't.
+let loop
+let runLoop = (maybeEvent) => {
+    requestFullscreenForCanvas(maybeEvent)
+    if (loop) return
+    loop = setInterval(onFrame, FRAME_INTERVAL)
+    PAUSED_LOST_TIME = getTime() - PAUSE_TIME
+}
+let stopLoop = () => {
+    if (!loop) return
+    loop = clearInterval(loop)
+    PAUSE_TIME = getTime()
+    clearScreen('#fff', 0.5)
+    _drawText(['paused. click to continue'], 0, 0.5, '#fff', /* size */1.5)
+}
+
+let onKeyDownKeyUp = downOrUp01 => event => {
+    if (keyCodesToControls[event.which]) {
+        keyControls[keyCodesToControls[event.which]] = downOrUp01
+        event.preventDefault()
+    }
+}
+
+let clearScreen = (color = '#f00', alpha=1) => {
+    ctx.globalAlpha = alpha
     ctx.fillStyle = color
-    return ctx.fillRect(-10, -10, 20, 20) // returns undefined
+    ctx.fillRect(-10, -10, 20, 20) // returns undefined
+    ctx.globalAlpha = 1
 }
 
 // GUI utility. Scopes a menu index variable, from which the user can choose
 let menuIndexChangeTime
-let createMenu = (options, i = 0, hasMovedBefore, hasMovementNow) => {
+let menuHasMovedNow
+let menuHasMovedBefore
+let createMenu = (options, i = 0) => {
     markMut('menuIndexChangeTime')
+    markMut('menuHasMovedBefore')
+    markMut('menuHasMovedNow')
     options = options.filter(o => !!o)
     menuIndexChangeTime = TIME
     return () => {
-        hasMovementNow =
+        menuHasMovedNow =
             (readControl('u') + readControl('P')) * -1
             + (readControl('d') + readControl('p'))
-        if (!hasMovedBefore && hasMovementNow) {
-            i = ((hasMovementNow > 0 ? i + 1 : i - 1) + options.length) % options.length
+        if (!menuHasMovedBefore && menuHasMovedNow) {
+            i = ((menuHasMovedNow > 0 ? i + 1 : i - 1) + options.length) % options.length
             menuIndexChangeTime = TIME
         }
-        hasMovedBefore = hasMovementNow
+        menuHasMovedBefore = menuHasMovedNow
         return options.map(([optWords, optCb], optI) => {
             if (optI - i) {
                 ctx.globalAlpha = 1

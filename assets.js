@@ -28,8 +28,7 @@ let svgProjector = (svgShape) => {
             return `$\{P(t,${args})}`
         }) + '`)'
 
-    // reuse variable so we can save bytes
-    shapeProjector =
+    let shapeProjector =
         // Create a function with
         // - P (tformProjectAssetVec) argument
         // Into a pathmaker function with

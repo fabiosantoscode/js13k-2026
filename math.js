@@ -212,6 +212,7 @@ let numCloseTo = (a, b) => {
     return Math.abs(num(a) - num(b)) < 0.02
 }
 let numSmallOrZero = n =>
+    // Allows undefined/NAN, intentionally flattening them to zero
     Math.abs(n) > .1 ? n : 0
 let numLerp = (a, b, weight) => {
     return a + (b - a) * weight
@@ -244,6 +245,10 @@ let vecNormalize = (v, lenSq = vecLengthSq(v), length = Math.sqrt(lenSq)) => {
 let vecLength = v => num(Math.sqrt(vecLengthSq(v)))
 let vecLengthSq = v => {
     return num(v[x] * v[x] + v[y] * v[y] + v[z] * v[z])
+}
+let vecLimitLength = (v, maxLen, curLen = vecLength(v)) => {
+    if (curLen > maxLen) return vecMulNum(vecNormalize(v), maxLen)
+    return v
 }
 let vecZero = () => [0, 0, 0]
 let matIdentity = () => [
