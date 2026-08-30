@@ -9,9 +9,17 @@ let resetToGameStart = () => {
     planetsConsumed = []
 }
 let savedPlayerTransform
+// format the story words
+let storyWords = lines => lines.map(line => {
+    assert(() => !line.split('\n').some(line => line.length > 35))
+
+    let lineCount = line.split('\n').length
+
+    return line + '\n'.repeat(numClamp(5 - lineCount, 0, 5))
+})
 let story = [
     [
-        [
+        storyWords([
             'Arrow keys = look around',
             'Arrow keys = look around',
             'WASD keys = move',
@@ -25,16 +33,16 @@ let story = [
             'BASE: Stop joking around!\n    You\'re lucky you survived.',
             'BASE: Use your ship\'s FUEL SUC.',
             '\n\nYOU: This planet seems... Fishy',
-        ],
+        ]),
         () => {
             resetCameraTransform()
             setCameraPosition(
                 vecAddVec(
                     planetFishy[planetTransform][0],
-                    skipToFishy ? [200, 0, -200] : [2000, 0, -2000]
+                    skipToFishy ? [200, 0, -200] : [3000, -50, -1500]
                 )
             )
-            setCameraRotation2(matRotateY(TAU * .36))
+            setCameraRotation2(matRotateY(TAU * .32))
             fuel = 0.1
         },
         (isFirstFrame) => {
@@ -42,7 +50,7 @@ let story = [
         },
     ],
     [
-        [
+        storyWords([
             "\nYOU: What?\n    BASE, what the hell is that?",
             "\n\nRADIO: A planet-eating entity.",
             "\n\n\nRADIO: A unicorn",
@@ -54,7 +62,7 @@ let story = [
             "\n\nYOU: I sure hope this isn't what\n    I think it is.",
             "BASE: GET GOING!",
             "\nYOU: I am!",
-        ],
+        ]),
         () => {
             setUnicornSpeedAccel(unicornSpeedEasy, unicornAccelEasy)
         },
@@ -63,7 +71,7 @@ let story = [
         },
     ],
     [
-        [
+        storyWords([
             "BASE: You seem to have escaped.",
             "\nYOU: What do I do now?",
             "BASE: What can you do?",
@@ -71,7 +79,7 @@ let story = [
             "BASE: FUEL SUCC more planets.",
             "\n    Then, escape.",
             "\n\nYOU: It might be too late...",
-        ],
+        ]),
         () => {
             setUnicornSpeedAccel(unicornSpeedVeryEasy, unicornAccelVeryEasy)
         },
@@ -80,7 +88,7 @@ let story = [
         },
     ],
     [
-        [
+        storyWords([
             "\nYOU: I think I'm being punished",
             "RADIO: Why?",
             "\nYOU: This can't be a coincidence!",
@@ -89,7 +97,7 @@ let story = [
             "RADIO: I wouldn't worry about it.\n    I'll call the brain engineer\n    for you.",
             "RADIO: You'll talk about this\n    for a while, maybe get some\n    SPACE MEDS.",
             "RADIO: You'll feel better soon.",
-        ],
+        ]),
         () => {
             setUnicornSpeedAccel(unicornSpeedMedium, unicornAccelMedium)
         },
@@ -98,10 +106,10 @@ let story = [
         },
     ],
     [
-        [
+        storyWords([
             "\nYOU: I wonder if I'm still alive.",
             "RADIO: Just one more planet.\n    You'll come home.",
-        ],
+        ]),
         () => {
             setUnicornSpeedAccel(unicornSpeedMedium, unicornAccelMedium)
         },
@@ -111,9 +119,9 @@ let story = [
     ],
     /* story template
     [
-        [
+        storyWords([
             "BASE: Something HUGE approaching!!", // maximum length
-        ],
+        ]),
         () => {
             // Init story beat
         },
@@ -128,7 +136,7 @@ let story = [
     */
     // reset the game save, switch to endgame screen
     [
-        [],
+        storyWords([]),
         () => { resetToGameStart(); currentScreen = SCREEN_ENDGAME },
         () => {},
     ],
@@ -166,8 +174,7 @@ let advanceStory = (isFirstFrame, [wordsList, initialize, shouldGoToNext] = stor
         showingTheseWordsUntil = TIME + showWordsTime
     }
     if (wordsList[showWordsIndex]) {
-        assert(() => !wordsList[showWordsIndex].split('\n').some(line => line.length > 35))
-        frameLog2(wordsList[showWordsIndex])
+        frameLog2(wordsList[showWordsIndex], 1, UI_LAYER_STORY, '#4f5')
     }
 
     if (shouldGoToNext()) {

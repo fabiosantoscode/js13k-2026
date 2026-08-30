@@ -249,7 +249,6 @@ let onFrameSpaceGame = storyMode => isFirstFrame => {
     ctx.globalAlpha = 0.5
     ctx.strokeStyle = 'red'
 
-    // spaceGameInertia = updateSpaceInertia(spaceGameInertia)
     updateControls(isFirstFrame)
     updateRenderStars()
     updateRenderPlanets()
@@ -257,7 +256,7 @@ let onFrameSpaceGame = storyMode => isFirstFrame => {
     updateRenderLanding()
     updateRenderConsumedPlanet()
 
-    deferDrawUICommand(() => {
+    deferDrawUICommand(UI_LAYER_FRAME_LOG, () => {
         // TODO smaller in SVG subsystem?
         let top = 0.45
         let bottom = 0.55
@@ -438,29 +437,28 @@ let updateRenderPlanets = () => spaceGamePlanets
         })
     )
 
-
 /*
-let updateSpaceInertia = inertia => spaceGamePlanets.reduce((inertia, [planetTform, _planetColor, planetName]) => {
+let getCumulativeGravity = () => spaceGamePlanets.reduce((accumulateInertia, [planetTform, _planetColor, planetName]) => {
     // Let's gravitate towards the sun & planets?
     let planetPosition = vec(planetTform[0])
     let planetDistance = vecDistance(cameraTransform[0], planetPosition)
     let planetSize = vecLength(planetTform[1][x])
 
     // Gravity scale: 1000
-    planetDistance = planetDistance / 3000
+    planetDistance = planetDistance / (planetSize * 10)
+
+    frameLog('planetDistance', planetDistance)
 
     if (planetDistance < 1) {
-        let planetMass = (planetSize / 1000000)
+        let planetMass = 1
         var intensity = Math.sqrt((1 - planetDistance)) * planetMass
+        frameLog('intensity', intensity)
         var vecToward = vecNormalize(vecSubVec(planetPosition, cameraTransform[0]))
         var gravityToward = vecMulNum(vecToward, intensity)
-        //if (planetName == 'fishy') {
-            //return vecAddVec(inertia, gravityToward)
-        //}
-        return inertia
+        return vecAddVec(accumulateInertia, gravityToward)
     }
-    return inertia
-}, inertia)
+    return accumulateInertia
+}, vecZero())
 */
 
 let dampenVelocity = 0.01
@@ -568,7 +566,7 @@ let updateLandedOnPlanet = (storyMode, isFirstFrame) => {
     }
 }
 
-let offblastSpeed = 10
+let offblastSpeed = 5
 let lastOffblast = 0
 let offblast = storyMode => () => {
     let planetCenter = landedOnPlanet[planetTransform][0]

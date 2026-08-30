@@ -56,7 +56,7 @@ let updateRenderUnicorn = isFirstFrame => {
 
     assert(() => unicornSpeed > 0, 'UNICORN got too close. The player should have died')
 
-    deferDrawUICommand(() => {
+    deferDrawUICommand(UI_LAYER_UNICORN_BAR, () => {
         ctx.fillStyle = '#f00'
         ctx.fillRect(...frameLogAdvanceXYWidthHeight(
             1.0 - (unicornSpeed / (unicornSpeedMaximum - unicornSpeedMinimum))

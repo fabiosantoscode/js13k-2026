@@ -203,10 +203,10 @@ let frameLog = (key, ...message) => {
 
     frameLog2(key + ': ' + message.map(str).join(" "))
 }
-let frameLog2 = (message, size) => deferDrawUICommand(() => {
+let frameLog2 = (message, size, layer = UI_LAYER_FRAME_LOG, color = '#fff') => deferDrawUICommand(layer, () => {
     message = message.split('\n')
     _drawText(message, .101, 0.101 + currentTextY, '#200', size)
-    _drawText(message, 0.1, 0.1 + currentTextY, '#fff', size)
+    _drawText(message, 0.1, 0.1 + currentTextY, color, size)
     return (currentTextY += 0.1 * message.length)
 })
 let frameLogAdvanceXYWidthHeight = (widthMultiplier) => [0.1, (currentTextY += 0.1) - 0.1, 0.8 * widthMultiplier, 0.1]
@@ -231,12 +231,16 @@ let deferRenderCommand = (transform, cb, tmpDist) => (
         ) > 0.2
         && deferLayer3D.push([tmpDist, transform, cb])
 )
-let deferDrawUICommand = cb => deferLayerHud.push(cb)
+let deferDrawUICommand = (layer, cb) => deferLayerHud.push([layer, cb])
+let UI_LAYER_UNICORN_BAR = 0
+let UI_LAYER_STORY = 1
+let UI_LAYER_FRAME_LOG = 2
 let undeferRenderCommands = () => {
     // distance sort
     deferLayer3D.sort((a, b) => b[0] - a[0])
     deferLayer3D.map(a => a[2](a[0]))
-    deferLayerHud.map(cb => cb())
+    deferLayerHud.sort((a, b) => a[0] - b[0])
+    deferLayerHud.map(layerAndCb => layerAndCb[1]())
     deferLayer3D.length = deferLayerHud.length = 0
     markMut('deferLayer3D')
     markMut('deferLayerHud')
