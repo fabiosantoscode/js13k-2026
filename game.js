@@ -392,16 +392,16 @@ let updateRenderConsumedPlanet = (explosionTime) => {
 
     if (!(explosionTime > 0)) return 0 // accepts NaN
 
-    deferRenderCommand(planetExplosionTransform, (defer) => {
-        ctx.fillStyle = ['#f33', '#f92', '#fe6'][Math.floor(explosionTime * 6) % 4]
+    deferRenderCommand(planetExplosionTransform, (_tmp) => {
+        _tmp = Math.floor(explosionTime * 12) % 3
+        ctx.fillStyle = ['#f33', '#f92', '#fe6'][_tmp]
         drawTransform(planetExplosionTransform)
-        ctx.fill(assetUnicornBody.flat(planetExplosionTransform))
         return ctx.fill(
             [
                 assetExplosion,
                 assetExplosion2,
                 assetExplosion3
-            ][Math.floor(explosionTime * 12) % 3]
+            ][_tmp]
                 .flat(planetExplosionTransform)
         )
     })
@@ -469,8 +469,8 @@ let angularAccelerationRate = 0.05
 let maxVelocity = 5
 let maxAngularVelocitySloppilyMeasured = 0.01
 let spaceGameInertia
-let spaceGameRotationLog = []
-let spaceGameRotationLogMaxLength = FRAME_INTERVAL_MS_INV * 2 // X,Y,Z rotators times 60 FPS times 3 seconds
+let spaceGameRotationLog
+let spaceGameRotationLogMaxLength = FRAME_INTERVAL_MS_INV // X,Y,Z rotators times 60 FPS
 let spaceGameRotationLogInfluence = (fromEnd) => {
     assert(() => fromEnd >= -0.01 && fromEnd < 1.01)
     return numClamp((1 - fromEnd) ** 4, 0, 1) / spaceGameRotationLogMaxLength
@@ -516,16 +516,17 @@ let updateControls = (isFirstFrame) => {
     let directionZ = vecNegative(cameraTransformInv[1][z])
 
     // Add propulsion!
-    let propulsion = vecAddVec(
+    let propulsion = vecLimitLength(vecAddVec(
         readControlAxis('d', 'u', directionZ),
         vecAddVec(
             readControlAxis('l', 'r', directionX),
             readControlAxis('U', 'D', directionY),
         )
-    )
+    ), 1)
+    let propulsionLength = vecLength(propulsion)
     spaceGameInertia = vecAddVec(
         spaceGameInertia,
-        vecMulNum(vecLimitLength(propulsion, 1), accelerationRate)
+        vecMulNum(propulsion, accelerationRate)
     )
 
     setCameraPosition(vecAddVec(cameraTransform[0], spaceGameInertia))
@@ -535,14 +536,11 @@ let updateControls = (isFirstFrame) => {
     let dampenedVelocity = numClamp(currentVelocity - dampenVelocity, 0.001, maxVelocity)
     spaceGameInertia = vecMulNum(vecNormalize(spaceGameInertia), dampenedVelocity)
 
-    /*
-    // Dampen rotation!
-    frameLog('rotinertia[x]', spaceGameRotationInertia[x])
-    frameLog('rotinertia[y]', spaceGameRotationInertia[y])
-    frameLog('rotinertia[z]', spaceGameRotationInertia[z])
-
-    spaceGameRotationInertia = matDampen(spaceGameRotationInertia, dampenAngularVelocity, maxAngularVelocitySloppilyMeasured)
-    */
+    // When already moving fast, align directions
+    let alignmentRate = currentVelocity > .1 && propulsionLength > .1 && vecDotVec(vecNormalize(spaceGameInertia), vecNormalize(propulsion))
+    if (alignmentRate > 0) {
+        spaceGameInertia = vecMoveToward(spaceGameInertia, vecMulNum(vecNormalize(propulsion), dampenedVelocity), alignmentRate * 0.01)
+    }
 }
 
 let fuel

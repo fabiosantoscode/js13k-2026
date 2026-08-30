@@ -5,7 +5,7 @@ let resetToGameStart = () => {
     markMut('savedPlayerTransform')
     markMut('planetsConsumed')
     currentStoryBeat = 0
-    savedPlayerTransform = undefined
+    savedPlayerTransform = 0
     planetsConsumed = []
 }
 let savedPlayerTransform
@@ -35,8 +35,6 @@ let story = [
                 )
             )
             setCameraRotation2(matRotateY(TAU * .36))
-            // spaceGameInertia = skipToFishy ? [0, -0.25, 0] : [0, -0.1, 0]
-            // spaceGameRotationInertia = matRotateX(0.002)
             fuel = 0.1
         },
         (isFirstFrame) => {
@@ -177,7 +175,6 @@ let advanceStory = (isFirstFrame, [wordsList, initialize, shouldGoToNext] = stor
             // unless we reset (or are in the first try) save our position
             savedPlayerTransform = structuredClone([cameraTransform, cameraTransformInv])
         }
-        savedPlayerTransform
         markMut('currentStoryBeat') // no need to reset
         currentStoryBeat++
         storyState = STORY_STATE_RESET;
