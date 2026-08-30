@@ -46,6 +46,10 @@ let onFrame = tmp => tryCatch(() => {
         [SCREEN_TESTING]: onFrameTesting,
     })[currentScreen]
 
+    if (currentScreen != SCREEN_SPACE_GAME && currentScreen != SCREEN_FREE_FLIGHT) {
+        onFrameNotSpaceGame()
+    }
+
     if (!self.production && !tmp) {
         assertFail('unknown screen ' + currentScreen)
     }
@@ -267,9 +271,6 @@ let keyCodesToControls = {
     // B stands for "bress the button in the UI"
     13: 'B',
     32: 'B',
-    // UNUSED?
-    32: 'B', // space: brake
-    16: 'b', // shift: release "babeety"
 }
 // https://w3c.github.io/gamepad/#remapping
 let gamepadAxesToControls = [
@@ -315,7 +316,7 @@ let FRAME_INTERVAL = 16
 let FRAME_INTERVAL_MS_INV = 63 // 62.5 actually
 
 let startLoopAndEvents = () => {
-    onclick = requestFullscreenForCanvas
+    onclick = onClick
     onkeydown = onKeyDownKeyUp(1)
     onkeyup = onKeyDownKeyUp(0)
     onblur = stopLoop
@@ -350,12 +351,21 @@ let stopLoop = () => {
     _drawText(['paused. click to continue'], 0, 0.5, '#fff', /* size */1.5)
 }
 
+let onClick = e => (
+    requestFullscreenForCanvas(e),
+    getPermissionToPlayAudio()
+)
+
 let onKeyDownKeyUp = downOrUp01 => event => {
+    getPermissionToPlayAudio()
     if (keyCodesToControls[event.which]) {
         keyControls[keyCodesToControls[event.which]] = downOrUp01
         event.preventDefault()
     }
 }
+
+let everPlayedAudioBefore = 0
+let getPermissionToPlayAudio = () => (markMut('everPlayedAudioBefore'), everPlayedAudioBefore++ || sound_beep.play())
 
 let clearScreen = (color = '#f00', alpha=1) => {
     ctx.globalAlpha = alpha
@@ -381,6 +391,7 @@ let createMenu = (options, i = 0) => {
         if (!menuHasMovedBefore && menuHasMovedNow) {
             i = ((menuHasMovedNow > 0 ? i + 1 : i - 1) + options.length) % options.length
             menuIndexChangeTime = TIME
+            sound_beep.play()
         }
         menuHasMovedBefore = menuHasMovedNow
         return options.map(([optWords, optCb], optI) => {
@@ -389,6 +400,7 @@ let createMenu = (options, i = 0) => {
                 return frameLog2('  ' + optWords, 1)
             } else {
                 if (readControl('B')) {
+                    sound_beep.play()
                     return optCb()
                 }
                 ctx.globalAlpha = 1.2 + Math.sin((TIME - menuIndexChangeTime) * 20)

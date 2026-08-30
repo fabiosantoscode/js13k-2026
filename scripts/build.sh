@@ -19,8 +19,10 @@ eval "$COMPRESSOR $FILES $COMPRESSOR_OPTS" >> $OUT_FILE
 echo "</script>" >> $OUT_FILE
 echo "<script>main()</script>" >> $OUT_FILE
 
-echo 'file size: '
+echo 'JS file size: '
 wc -c $OUT_FILE
+
+cp -r sounds build/
 
 (cd build/ && rm -f build.zip && zip -X -9 -r build.zip *)
 

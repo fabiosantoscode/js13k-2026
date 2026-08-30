@@ -215,6 +215,8 @@ let spaceGamePlanets
 let spaceGamePlanetsInitialLength
 let onFrameSpaceGame = storyMode => isFirstFrame => {
     if (isFirstFrame) {
+        sound_engine.play()
+        sound_engine.volume = 0
         markMut('spaceGamePlanets')
         markMut('spaceGamePlanetsInitialLength')
         markMut('planetSun')
@@ -272,6 +274,9 @@ let onFrameSpaceGame = storyMode => isFirstFrame => {
         ctx.lineTo(middle, bottom)
         ctx.stroke()
     })
+}
+let onFrameNotSpaceGame = () => {
+    sound_engine.volume = numLerp(sound_engine.volume, 0, 0.1)
 }
 
 let starDistance = 100_000_000
@@ -539,6 +544,9 @@ let updateControls = (isFirstFrame) => {
     if (alignmentRate > 0) {
         spaceGameInertia = vecMoveToward(spaceGameInertia, vecMulNum(vecNormalize(propulsion), dampenedVelocity), alignmentRate * 0.01)
     }
+
+    // Do some audio
+    sound_engine.volume = numLerp(sound_engine.volume, propulsionLength * (dampenedVelocity / maxVelocity), propulsionLength > 0.2 ? 0.2 : 0.01)
 }
 
 let fuel
@@ -559,6 +567,7 @@ let updateLandedOnPlanet = (storyMode, isFirstFrame) => {
     } else if (!landedOnPlanet) {
         return 0
     } else {
+        sound_engine.volume = numLerp(sound_engine.volume, 0, 0.1)
         frameLog('FUEL SUC', landedOnPlanet[planetName])
         frameLog('FUEL LVL', (fuel = numClamp(fuel + 0.0005, 0, 1)))
         if (fuel > 0.2) landedMenu()
@@ -576,6 +585,7 @@ let offblast = storyMode => () => {
         // CONSUME THE PLANET OMG
         consumePlanet(landedOnPlanet)
         resetUnicornToPlanet(planetCenter)
+        sound_explosion.play()
     }
 
     // Go away from planet
@@ -625,6 +635,7 @@ let updateRenderLanding = () => {
         // When going away from planet, do not land
         if (dotTowardsPlanet > 0) {
             if (speed > speedTooFastToLand || closestPlanet == planetSun) {
+                sound_explosion.play()
                 die('crash landed on ' + getPlanetName(closestPlanet))
             }
             landedOnPlanet = closestPlanet

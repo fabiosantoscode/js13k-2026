@@ -49,8 +49,10 @@ let updateRenderUnicorn = isFirstFrame => {
         unicornRecordedPlayerTform.length >= unicornSpeed ? unicornRecordedPlayerTform[0] : unicornInitialPosition
 
     if (!unicornSpeed || !unicornTform[0] || getIsLandedOrStillOffBlasting()) {
-        return
+        return setRoaring(0)
     }
+
+    setRoaring(1)
 
     unicornSpeed -= unicornAcceleration
 
@@ -64,6 +66,8 @@ let updateRenderUnicorn = isFirstFrame => {
     })
 
     if (vecLength(vecSubVec(cameraTransform[0], unicornTform[0])) < unicornScale * .1) {
+        sound_explosion.play()
+        sound_roar.play()
         die('The UNICORN caught up')
     }
 
@@ -86,3 +90,12 @@ let trimTopOf = (array, unicornSpeed) =>
     (array.length > unicornSpeed + 1)
         ? (array.shift(), trimTopOf(array, unicornSpeed))
         : 0
+
+let wasRoaring
+let setRoaring = shouldRoar => {
+    markMut('wasRoaring')
+    if (shouldRoar && !wasRoaring) {
+        sound_roar.play()
+    }
+    wasRoaring = shouldRoar
+}
