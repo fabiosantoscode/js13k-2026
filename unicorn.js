@@ -48,7 +48,7 @@ let updateRenderUnicorn = isFirstFrame => {
     unicornTform[0] =
         unicornRecordedPlayerTform.length >= unicornSpeed ? unicornRecordedPlayerTform[0] : unicornInitialPosition
 
-    if (!unicornSpeed || !unicornTform[0]) {
+    if (!unicornSpeed || !unicornTform[0] || getIsLandedOrStillOffBlasting()) {
         return
     }
 

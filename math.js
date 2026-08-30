@@ -195,9 +195,9 @@ let shape = n => isNum(n) ? 1 : isVec(n) ? 2 : isMat(n) ? 3 : isTform(n) ? 4 : a
 let str = n => (
     isNum(n) ? (
         Math.floor(n) !== n && Math.abs(n) < 1000 && String(n).length > 6
-            ? ('' + Math.round(n * 1000) / 1000)
+            ? (n = '' + Math.round(n * 1000) / 1000)
                 .replace(/^([0-9])/, ' $1') // add spc when no leading "-"
-                .padEnd(5, '0') // add trailing zeros
+                .padEnd(n.includes(".") ? 5 : 6, n.includes(".") ? '0' : " ") // add trailing zeros (or space, if not decimal)
             : n
     )
     : !n || isStr(n) ? n
@@ -221,26 +221,36 @@ let numClamp = (n, min, max) => n < min ? min : n > max ? max : n
 let numMoveToward = (a, b, byN) => {
     assert(() => byN > 0)
     if (a < b) return numClamp(a + byN, a, b)
-    else return numClamp(a - byN, a, b)
+    else return numClamp(a - byN, b, a)
 }
 let vecMulNum = (v, n) => (vec(v), num(n), [v[x] * n, v[y] * n, v[z] * n])
 let vecAddVec = (v1, v2) => (vec(v1), vec(v2), [v1[x] + v2[x], v1[y] + v2[y], v1[z] + v2[z]])
 let vecSubVec = (v1, v2) => (vec(v1), vec(v2), [v1[x] - v2[x], v1[y] - v2[y], v1[z] - v2[z]])
 let vecMulVec = (v1, v2) => (vec(v1), vec(v2), [v1[x] * v2[x], v1[y] * v2[y], v1[z] * v2[z]])
 let vecDivVec = (v1, v2) => (vec(v1), vec(v2), [v1[x] / v2[x], v1[y] / v2[y], v1[z] / v2[z]])
-let vecMoveToward = (v1, v2, byN) => (vec(v1), vec(v2), num(byN), [numMoveToward(v1[x], v2[x], byN), numMoveToward(v1[y], v2[y], byN), numMoveToward(v1[z], v2[z], byN)])
+let vecMoveToward = (v1, v2, byN) => (
+    vec(v1),
+    vec(v2),
+    num(byN),
+    [
+        numMoveToward(v1[x], v2[x], byN),
+        numMoveToward(v1[y], v2[y], byN),
+        numMoveToward(v1[z], v2[z], byN)
+    ]
+)
 let vecNegative = (v) => mapI3(i=>-v[i])
 let vecIsNormalized = (v) => {
     return numCloseTo(vecLengthSq(v), 1)
 }
-let vecNormalize = (v, lenSq = vecLengthSq(v), length = Math.sqrt(lenSq)) => {
-    if (lenSq < .001) return v
+let vecNormalize = (v, length = vecLength(v)) => {
+    if (length > .00001) {
+        let norm = mapI3(axis => num(v[axis]/length))
 
-    let norm = mapI3(axis => num(v[axis]/length))
+        assert(() => vecIsNormalized(norm))
 
-    assert(() => vecIsNormalized(norm))
-
-    return norm
+        return norm
+    }
+    return v
 }
 let vecLength = v => num(Math.sqrt(vecLengthSq(v)))
 let vecLengthSq = v => {
@@ -297,6 +307,10 @@ let matMulNum = (m, n) => {
         [m[z][x] * n, m[z][y] * n, m[z][z] * n],
     ]
 }
+let matMulMat = (m1, m2) => mapI3(row => mapI3(col => m1[row][col] * m2[row][col]))
+let matAddMat = (m1, m2) => mapI3(row => mapI3(col => m1[row][col] + m2[row][col]))
+let matAddNum = (m, n) => mapI3(row => mapI3(col => m[row][col] + n))
+let matSubMat = (m1, m2) => mapI3(row => mapI3(col => m1[row][col] - m2[row][col]))
 let matTransformAndAddVec = (m, v, v2) => {
     return [
         vecDotVec(m[x], v) + v2[x],
@@ -368,7 +382,54 @@ let matOrthonormalize = (m) => {
 let matMoveToward = (m1, m2, byN) => matOrthonormalize(
     mapI3(row => vecMoveToward(m1[row], m2[row], byN))
 )
-let matDampen = (m, n) => matMoveToward(m, matIdentity(), n)
+// Sloppily dampen and angular-velocity-limit a matrix
+// - For each axis, there's one that normalizes MUCH slower than the others.
+let matDampen = (m, n, max /* TODO angular-velocity-limit */) => {
+    let ideal = matIdentity() // TODO don't call the func
+    // the number that's close to 1 on the identity matrix moves by 2%. The others move more.
+    // this is an arbitrary number that happens to work well
+    /*
+    let dampeningRate = [
+        [0.02, 0.49, 0.49],
+        [0.49, 0.02, 0.49],
+        [0.49, 0.49, 0.02],
+    ]
+    */
+    let dampeningRate = [
+        [0.002, 0.499, 0.499],
+        [0.499, 0.002, 0.499],
+        [0.499, 0.499, 0.002],
+    ]
+
+    let absoluteDifference = mapI3(row => mapI3(col => Math.abs(m[row][col] - ideal[row][col]) * dampeningRate[row][col]))
+        .flat(1 / 0)
+        .reduce((a, b) => a + b)
+    frameLog('absoluteDifference', String(absoluteDifference))
+    if (absoluteDifference > max) {
+        n = absoluteDifference - max
+    }
+    if (absoluteDifference < n) {
+        return ideal
+    }
+
+    let differences = matMulMat(matSubMat(ideal, m), dampeningRate)
+
+    frameLog('differences[x]', differences[x])
+    frameLog('differences[y]', differences[y])
+    frameLog('differences[z]', differences[z])
+
+    // `n` is an absolute travel. But we're going to be using multiplication
+
+    // Now we move-towards the ideal, by `n`
+    return mapI3(row => mapI3(col => numMoveToward(m[row][col], m[row][col] + differences[row][col], n)))
+
+    /*
+    return mapI3(row => mapI3(col => {
+        let difference = (ideal[row][col] - m[row][col]) * dampeningRate[row][col]
+        return m[row][col] + difference
+    }))
+    */
+}
 let matIsOrthonormalized = m =>
     numCloseTo(vecLengthSq(m[x]) + vecLengthSq(m[y]) + vecLengthSq(m[z]), 3)
     && numCloseTo(0, vecDotVec(m[x], m[y]))

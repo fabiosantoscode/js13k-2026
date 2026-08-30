@@ -54,6 +54,9 @@ let assetUnicornBody = `M 50,27 60,31 66,51 59,71 63,86 60,93 53,87 53,74 53,64 
 let assetUnicornHead = `M 26,12 49,27 70,11 50,64 Z`
 let assetUnicornHorn = `M 45,35 50,0 55,35 50,40 Z`
 let assetUnicornEyesMouth = `M 35,40 40,35 45,40 40,45 Z M 55,40 60,35 65,40 60,45 Z`
+let assetExplosion = `M 19,10 45,28 54,11 58,31 83,23 80,44 89,60 63,70 63,91 46,75 21,87 33,59 8,49 33,39 Z`
+let assetExplosion2 = `M 19,19 45,28 54,10 60,34 83,24 78,45 93,72 68,63 65,90 46,73 21,85 33,60 11,49 32,40 Z`
+let assetExplosion3 = `M 17,13 44,25 60,7 63,29 92,23 80,46 95,68 70,70 61,93 44,76 16,86 28,60 6,47 30,39 Z`
 let assetCompositeUnicorn = unicornTform => {
     ctx.fillStyle = '#f06'
     ctx.fill(assetUnicornBody(unicornTform))
@@ -81,6 +84,9 @@ let prepareAssets = () => {
     assetUnicornHead = svgProjector(assetUnicornHead)
     assetUnicornHorn = svgProjector(assetUnicornHorn)
     assetUnicornEyesMouth = svgProjector(assetUnicornEyesMouth)
+    assetExplosion = svgProjector(assetExplosion)
+    assetExplosion2 = svgProjector(assetExplosion2)
+    assetExplosion3 = svgProjector(assetExplosion3)
 }
 
 /* Check if, when rendered, this SVG would go behind or in front of the camera

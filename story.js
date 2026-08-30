@@ -12,12 +12,18 @@ let savedPlayerTransform
 let story = [
     [
         [
+            'Arrow keys = look around',
+            'Arrow keys = look around',
+            'WASD keys = move',
+            'WASD keys = move',
+            'You can use a gamepad',
+            'You can use a gamepad',
             'BASE: Omega Rainbow 45-U\n    Do you copy? Please respond\n',
             '\n\nYOU: Where am I?',
             'BASE: You really did it this time.\nWhat is your status?',
             '\nYOU: I think I hallucinated a huge\n    pink THING outside the ship',
-            'BASE: Shut up!\n    Idiot!\n    You\'re lucky you survived.',
-            'BASE: Use your ship\'s FUEL SUCC.',
+            'BASE: Stop joking around!\n    You\'re lucky you survived.',
+            'BASE: Use your ship\'s FUEL SUC.',
             '\n\nYOU: This planet seems... Fishy',
         ],
         () => {
@@ -25,7 +31,7 @@ let story = [
             setCameraPosition(
                 vecAddVec(
                     planetFishy[planetTransform][0],
-                    skipToFishy ? [0, 130, -3] : [1000, 0, -1000]
+                    skipToFishy ? [200, 0, -200] : [2000, 0, -2000]
                 )
             )
             setCameraRotation2(matRotateY(TAU * .36))

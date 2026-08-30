@@ -1,9 +1,7 @@
 let readControlAxis = (neg, pos, v) => {
-    return vecAddVec(
-        vecMulNum(v, readControl(neg)),
-        vecMulNum(vecNegative(v), readControl(pos))
-    )
+    return vecMulNum(v, readControlNegPos(neg, pos))
 }
+let readControlNegPos = (neg, pos) => readControl(neg) * -1 + readControl(pos)
 
 let onFrameDemo = isFirstFrame => {
     if (isFirstFrame) {
@@ -14,9 +12,9 @@ let onFrameDemo = isFirstFrame => {
     setCameraRotation(demoRotationX, demoRotation)
 
     let cameraMovement = vec([
-        readControl('l') * -1 + readControl('r'),
-        readControl('D') * -1 + readControl('U'),
-        readControl('u') * -1 + readControl('d'),
+        readControlNegPos('l', 'r'),
+        readControlNegPos('D', 'U'),
+        readControlNegPos('u', 'd'),
     ])
     cameraMovement = vecMulNum(cameraMovement, 0.2)
     setCameraPosition(vecAddVec(cameraTransform[0], cameraMovement))
@@ -58,18 +56,18 @@ let onFrameTesting = isFirstFrame => {
         onFrameTestingCameraRotationX = 0.05 * TAU
     }
     onFrameTestingCameraRotation += (
-        readControl('C') * -1 + readControl('c')
+        readControlNegPos('C', 'c')
     ) * 0.01
     onFrameTestingCameraRotationX += (
-        readControl('D') * -1 + readControl('U')
+        readControlNegPos('D', 'U')
     ) * 0.01
 
     setCameraRotation(onFrameTestingCameraRotationX, onFrameTestingCameraRotation)
 
     let cameraMovement = vec([
-        readControl('l') * -1 + readControl('r'),
-        0, // readControl('D') * -1 + readControl('U'),
-        readControl('u') * -1 + readControl('d'),
+        readControlNegPos('l', 'r'),
+        0, // readControlNegPos('D', 'U'),
+        readControlNegPos('u', 'd'),
     ])
     cameraMovement = matTransformVec(cameraTransform[1], cameraMovement)
     cameraMovement = vecMulNum(cameraMovement, 0.2)
@@ -213,8 +211,6 @@ let die = reason => {
 
 
 // Some of these are initialized in story.js :D
-let spaceGameInertia
-let spaceGameRotationInertia
 let spaceGamePlanets
 let spaceGamePlanetsInitialLength
 let onFrameSpaceGame = storyMode => isFirstFrame => {
@@ -226,13 +222,9 @@ let onFrameSpaceGame = storyMode => isFirstFrame => {
         spaceGamePlanets = initPlanets()
         spaceGamePlanetsInitialLength = spaceGamePlanets.length
 
-        markMut('spaceGameInertia')
-        spaceGameInertia = vecZero()
-        markMut('spaceGameRotationInertia')
-        spaceGameRotationInertia = matIdentity()
-
-        updateLandedOnPlanet(storyMode, isFirstFrame)
         // Initialize things (first frame, after all)
+        updateLandedOnPlanet(storyMode, isFirstFrame)
+        updateControls(isFirstFrame)
         if (storyMode) {
             updateRenderUnicorn(isFirstFrame)
             advanceStory(isFirstFrame)
@@ -257,15 +249,33 @@ let onFrameSpaceGame = storyMode => isFirstFrame => {
     ctx.globalAlpha = 0.5
     ctx.strokeStyle = 'red'
 
-    spaceGameInertia = updateSpaceInertia(spaceGameInertia)
-    updateControls()
+    // spaceGameInertia = updateSpaceInertia(spaceGameInertia)
+    updateControls(isFirstFrame)
     updateRenderStars()
     updateRenderPlanets()
 
-    return updateRenderLanding()
+    updateRenderLanding()
+    updateRenderConsumedPlanet()
+
+    deferDrawUICommand(() => {
+        // TODO smaller in SVG subsystem?
+        let top = 0.45
+        let bottom = 0.55
+        let middle = 0.5
+        let left = 0.45
+        let right = 0.55
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+        ctx.beginPath()
+        ctx.moveTo(left, middle)
+        ctx.lineTo(right, middle)
+        ctx.moveTo(middle, top)
+        ctx.lineTo(middle, bottom)
+        ctx.stroke()
+    })
 }
 
-let starDistance = 100_000
+let starDistance = 100_000_000
 let range = n => (
     assert(() => n >= 0),
     n-- ? [...range(n), n] : []
@@ -327,7 +337,7 @@ let initPlanets = () => [
     [
         tform([
             [ -1700, 0, 2700 ],
-            matScaled(500),
+            matScaled(400),
         ]),
         "#eac1e4",
         "One"
@@ -365,10 +375,36 @@ let initPlanets = () => [
         "Fishy"
     ],
 ].filter(planet => !planetsConsumed.includes(planet[planetName]))
-let planetsConsumed
+let planetExplosionRenderTime = 2
+let planetsConsumed // initialized to [] in resetToGameStart
+let planetExplosionTransform
+let planetExplosionTimeout
 let consumePlanet = (planet) => {
     planetsConsumed.push(planet[planetName])
     spaceGamePlanets = initPlanets()
+    markMut('planetExplosionTransform')
+    markMut('planetExplosionTimeout')
+    planetExplosionTransform = [planet[planetTransform][0], matScaleNum(planet[planetTransform][1], 10)]
+    planetExplosionTimeout = TIME + planetExplosionRenderTime
+}
+let updateRenderConsumedPlanet = (explosionTime) => {
+    explosionTime = planetExplosionTimeout - TIME
+
+    if (!(explosionTime > 0)) return 0 // accepts NaN
+
+    deferRenderCommand(planetExplosionTransform, (defer) => {
+        ctx.fillStyle = ['#f33', '#f92', '#fe6'][Math.floor(explosionTime * 6) % 4]
+        drawTransform(planetExplosionTransform)
+        ctx.fill(assetUnicornBody.flat(planetExplosionTransform))
+        return ctx.fill(
+            [
+                assetExplosion,
+                assetExplosion2,
+                assetExplosion3
+            ][Math.floor(explosionTime * 12) % 3]
+                .flat(planetExplosionTransform)
+        )
+    })
 }
 let getConsumedPlanets = () => {
     return planetsConsumed.length
@@ -381,7 +417,7 @@ let updateRenderPlanets = () => spaceGamePlanets
         deferRenderCommand(planet[planetTransform], (distance) => {
             let planetScreenRadius = cameraProjectRadiusAtDistance(getPlanetSize(planet), distance)
 
-            if (distance < 999999) {
+            if (distance < 5000) {
                 ctx.fillStyle = '#fff'
                 ctx.font = screenFont(1)
                 ctx.fillText(' ' + getPlanetName(planet), ...cameraProject2d(planet[planetTransform][0]).map((coord, i) => coord + (i ? screenFontHeight/2 : planetScreenRadius)))
@@ -403,7 +439,8 @@ let updateRenderPlanets = () => spaceGamePlanets
     )
 
 
-let updateSpaceInertia = inertia => inertia /* spaceGamePlanets.reduce((inertia, [planetTform, _planetColor, planetName]) => {
+/*
+let updateSpaceInertia = inertia => spaceGamePlanets.reduce((inertia, [planetTform, _planetColor, planetName]) => {
     // Let's gravitate towards the sun & planets?
     let planetPosition = vec(planetTform[0])
     let planetDistance = vecDistance(cameraTransform[0], planetPosition)
@@ -423,60 +460,89 @@ let updateSpaceInertia = inertia => inertia /* spaceGamePlanets.reduce((inertia,
         return inertia
     }
     return inertia
-}, inertia) */
+}, inertia)
+*/
 
-let updateControls = () => {
+let dampenVelocity = 0.01
+let accelerationRate = 0.01 + dampenVelocity
+let angularAccelerationRate = 0.05
+let maxVelocity = 5
+let maxAngularVelocitySloppilyMeasured = 0.01
+let spaceGameInertia
+let spaceGameRotationLog = []
+let spaceGameRotationLogMaxLength = FRAME_INTERVAL_MS_INV * 2 // X,Y,Z rotators times 60 FPS times 3 seconds
+let spaceGameRotationLogInfluence = (fromEnd) => {
+    assert(() => fromEnd >= -0.01 && fromEnd < 1.01)
+    return numClamp((1 - fromEnd) ** 4, 0, 1) / spaceGameRotationLogMaxLength
+}
+let resetInertia = () => {
+    markMut('spaceGameInertia')
+    markMut('spaceGameRotationLog')
+    spaceGameRotationLog = []
+    spaceGameInertia = vecZero()
+}
+let updateControls = (isFirstFrame) => {
+    if (isFirstFrame) {
+        resetInertia()
+    }
+
     assert(() => matIsOrthonormalized(cameraTransformInv[1]))
     assert(() => matIsOrthonormalized(cameraTransform[1]))
 
-    let pitch = readControl('p') * -1 + readControl('P')
-    let matPitch = matFromAxisAngle(cameraTransformInv[1][x], pitch * 0.0001)
+    let rotations = vecLimitLength([
+        readControlNegPos('p', 'P'), // P-itch
+        readControlNegPos('c', 'C'), // yaw (clockwise/counterclockwise)
+        readControlNegPos('S', 's'), // roll (S-pin)
+    ], 1)
 
-    let yaw = readControl('c') * -1 + readControl('C')
-    let matYaw = matFromAxisAngle(cameraTransformInv[1][y], yaw * 0.0001)
+    spaceGameRotationLog.push(rotations)
+    if (spaceGameRotationLog.length >= spaceGameRotationLogMaxLength) spaceGameRotationLog.shift()
 
-    let roll = readControl('S') * -1 + readControl('s')
-    let matRoll = matFromAxisAngle(cameraTransformInv[1][z], roll * 0.0001)
+    let reducedRotation = spaceGameRotationLog.reduce((rotationAccumulator, rotations, i) => {
+        let influenceAmount =
+            angularAccelerationRate *
+            spaceGameRotationLogInfluence(1 - (i / spaceGameRotationLogMaxLength))
+        let rotationMatrices = [
+            matFromAxisAngle(cameraTransformInv[1][x], rotations[x] * influenceAmount),
+            matFromAxisAngle(cameraTransformInv[1][y], rotations[y] * influenceAmount),
+            matFromAxisAngle(cameraTransformInv[1][z], rotations[z] * influenceAmount),
+        ]
+        return rotationMatrices.reduce(matTransformMat, rotationAccumulator)
+    }, matIdentity())
+    setCameraRotation2(matOrthonormalize(reducedRotation))
 
-    spaceGameRotationInertia = [
-        spaceGameRotationInertia,
-        matPitch,
-        matYaw,
-        matRoll,
-    ].reduce(matTransformMat)
+    let directionX = cameraTransformInv[1][x]
+    let directionY = cameraTransformInv[1][y]
+    let directionZ = vecNegative(cameraTransformInv[1][z])
 
-    if (Math.abs(pitch) + Math.abs(yaw) + Math.abs(roll) < 0.01) {
-        // In space, there's no air resistance. But this is a game and it gets disorienting
-        spaceGameRotationInertia = matLerp(spaceGameRotationInertia, matIdentity(), 0.002)
-    }
-
-    if (readControl('B')) {
-        spaceGameRotationInertia = matLerp(spaceGameRotationInertia, matIdentity(), 0.1)
-        if (cheatsOn) {
-            spaceGameInertia = vecZero()
-        }
-    }
-    spaceGameRotationInertia = matOrthonormalize(spaceGameRotationInertia)
-    setCameraRotation2(spaceGameRotationInertia)
-
-    let moveForward = vecNegative(cameraTransformInv[1][z])
-    let moveUp = cameraTransformInv[1][y]
-    let moveLeft = cameraTransformInv[1][x]
-
-    let propulsion = [
-        readControlAxis('u', 'd', moveForward),
-        readControlAxis('r', 'l', moveLeft),
-        readControlAxis('D', 'U', moveUp),
-    ].reduce(vecAddVec)
-
-    propulsion = vecMulNum(vecNormalize(propulsion), 0.006)
-
-    spaceGameInertia = vecLimitLength(
-        vecAddVec(spaceGameInertia, propulsion),
-        // speed limit
-        5
+    // Add propulsion!
+    let propulsion = vecAddVec(
+        readControlAxis('d', 'u', directionZ),
+        vecAddVec(
+            readControlAxis('l', 'r', directionX),
+            readControlAxis('U', 'D', directionY),
+        )
     )
+    spaceGameInertia = vecAddVec(
+        spaceGameInertia,
+        vecMulNum(vecLimitLength(propulsion, 1), accelerationRate)
+    )
+
     setCameraPosition(vecAddVec(cameraTransform[0], spaceGameInertia))
+
+    // Dampen movement!
+    let currentVelocity = vecLength(spaceGameInertia)
+    let dampenedVelocity = numClamp(currentVelocity - dampenVelocity, 0.001, maxVelocity)
+    spaceGameInertia = vecMulNum(vecNormalize(spaceGameInertia), dampenedVelocity)
+
+    /*
+    // Dampen rotation!
+    frameLog('rotinertia[x]', spaceGameRotationInertia[x])
+    frameLog('rotinertia[y]', spaceGameRotationInertia[y])
+    frameLog('rotinertia[z]', spaceGameRotationInertia[z])
+
+    spaceGameRotationInertia = matDampen(spaceGameRotationInertia, dampenAngularVelocity, maxAngularVelocitySloppilyMeasured)
+    */
 }
 
 let fuel
@@ -488,6 +554,7 @@ let updateLandedOnPlanet = (storyMode, isFirstFrame) => {
         markMut('landedMenu')
         markMut('landedOnPlanet')
         fuel = 1
+        resetInertia()
 
         landedMenu = createMenu([
             ['offblast now', offblast(storyMode)],
@@ -503,7 +570,8 @@ let updateLandedOnPlanet = (storyMode, isFirstFrame) => {
     }
 }
 
-let offblastSpeed = 0.003
+let offblastSpeed = 10
+let lastOffblast = 0
 let offblast = storyMode => () => {
     let planetCenter = landedOnPlanet[planetTransform][0]
     let playerPosition = cameraTransform[0]
@@ -513,14 +581,22 @@ let offblast = storyMode => () => {
         consumePlanet(landedOnPlanet)
         resetUnicornToPlanet(planetCenter)
     }
+
+    // Go away from planet
+    setCameraPosition(vecAddVec(cameraTransform[0], awayFromPlanet))
     spaceGameInertia = vecMulNum(vecNormalize(awayFromPlanet), offblastSpeed)
 
     // Fuck off
 
     landedOnPlanet = 0
+    markMut('lastOffblast') // safe to use without reset
+    lastOffblast = TIME
 }
 
-let speedTooFastToLand = 30
+let getIsLandedOrStillOffBlasting = () =>
+    landedOnPlanet || TIME - lastOffblast < planetExplosionRenderTime
+
+let speedTooFastToLand = 50
 let updateRenderLanding = () => {
     let speed = vecLength(spaceGameInertia) * FRAME_INTERVAL_MS_INV
     let [closestPlanet, closestPlanetDistance] = spaceGamePlanets.map(a => [a, vecDistance(a[planetTransform][0], cameraTransform[0]) - getPlanetSize(a)]).toSorted((a, b) => (

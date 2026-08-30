@@ -372,8 +372,8 @@ let createMenu = (options, i = 0) => {
     menuIndexChangeTime = TIME
     return () => {
         menuHasMovedNow =
-            (readControl('u') + readControl('P')) * -1
-            + (readControl('d') + readControl('p'))
+            readControlNegPos('u', 'd')
+            + readControlNegPos('P', 'p')
         if (!menuHasMovedBefore && menuHasMovedNow) {
             i = ((menuHasMovedNow > 0 ? i + 1 : i - 1) + options.length) % options.length
             menuIndexChangeTime = TIME
