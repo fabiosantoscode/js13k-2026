@@ -616,7 +616,7 @@ let updateRenderLanding = () => {
     frameLog('speed', speed.toFixed(2) + 'km/s')
 
     if (closestPlanet == planetSun) {
-        frameLog('autopilot', 'cannot land safely on the sun')
+        frameLog('autopilot', 'can\'t land on the sun')
     } else if (speed > speedTooFastToLand) {
         frameLog('autopilot', 'too fast to land safely')
     }

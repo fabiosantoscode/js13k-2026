@@ -88,7 +88,9 @@ let story = [
             "\nYOU: This can't be a coincidence!",
             "\nYOU: I wrote so many horror\n    stories where the monster was\n    a manifestation of my regret,\n    eating everything that\n    I tried to enjoy.",
             "\nYOU: And something like this?\n\n    This can't be a coincidence!",
-            "RADIO: I wouldn't worry about it.\n    I'll call the brain engineer\n    for you. You'll talk about this\n    for a while, maybe get some\n    SPACE MEDS, and feel better\n    in no time.",
+            "RADIO: I wouldn't worry about it.\n    I'll call the brain engineer\n    for you.",
+            "RADIO: You'll talk about this\n    for a while, maybe get some\n    SPACE MEDS.",
+            "RADIO: You'll feel better soon.",
         ],
         () => {
             setUnicornSpeedAccel(unicornSpeedMedium, unicornAccelMedium)
