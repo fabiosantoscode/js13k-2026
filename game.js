@@ -500,10 +500,10 @@ let getCumulativeGravity = () => spaceGamePlanets.reduce((accumulateInertia, [pl
 
 let dampenVelocity = 0.01
 let accelerationRate = 0.02 + dampenVelocity
-let dampenAngle = 0.0001
+let dampenAngle = 0.000025
 let dampenAngleMul = 0.997
-let angularAccelerationRate = 0.000 + dampenAngle
-let maxVelocity = 10
+let angularAccelerationRate = 0.000075 + dampenAngle
+let maxVelocity = 4
 let maxAngularVelocity = 0.05
 let spaceGameInertia
 let spaceGameAngularInertia
@@ -539,12 +539,8 @@ let updateControls = (isFirstFrame) => {
     setCameraRotation(spaceGameAngle[0], spaceGameAngle[1])
 
     spaceGameAngularInertia =
-        /*vecDistance(spaceGameAngularInertia, vecZero()) < angularDecelerationExp
-        && rotationsLength < 0.001
-            ? vecMulNum(spaceGameAngularInertia, 0.8)
-            : */
-        // vecMulNum(vecMoveToward(spaceGameAngularInertia, vecZero(), dampenAngle), dampenAngleMul)
-        vecMulNum(spaceGameAngularInertia, dampenAngleMul)
+        vecMoveToward(vecMulNum(spaceGameAngularInertia, dampenAngleMul), vecZero(), dampenAngle)
+        // vecMulNum(spaceGameAngularInertia, dampenAngleMul)
 
     let directionX = cameraTransformInv[1][x]
     let directionY = cameraTransformInv[1][y]
@@ -664,9 +660,9 @@ let updateRenderLanding = () => {
     frameLog('distance', closestPlanetDistance.toFixed(2) + 'km')
 
     if (closestPlanet == planetSun) {
-        frameLog('autopilot', 'can\'t land on the sun')
+        frameLog2('autopilot: can\'t land on the sun', 1, UI_LAYER_FRAME_LOG, '#FE3')
     } else if (speed > speedTooFastToLand) {
-        frameLog('autopilot', 'too fast to land safely')
+        frameLog2('autopilot: too fast to land safely', 1, UI_LAYER_FRAME_LOG, '#FE3')
     }
 
     if (

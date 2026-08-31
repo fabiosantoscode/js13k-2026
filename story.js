@@ -4,7 +4,7 @@ let resetToGameStart = () => {
     markMut('currentStoryBeat')
     markMut('savedPlayerTransform')
     markMut('planetsConsumed')
-    currentStoryBeat = 0
+    currentStoryBeat = skipStory ? 1 : 0
     savedPlayerTransform = 0
     planetsConsumed = []
 }
@@ -45,10 +45,10 @@ let story = [
             setCameraPosition(
                 vecAddVec(
                     planetFishy[planetTransform][0],
-                    skipToFishy ? [200, 0, -200] : [3000, -50, -1500]
+                    skipToFishy ? [200, 0, -200] : [5500, -50, -4000]
                 )
             )
-            setCameraRotation2(matRotateY(TAU * .32))
+            spaceGameAngle = [0, TAU * 0.35, 0]
         },
         (isFirstFrame) => {
             return getConsumedPlanets() // advance the story the first time a planet gets eaten
