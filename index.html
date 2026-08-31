@@ -1,11 +1,15 @@
 <!doctype html>
-<body style="margin:0;overflow:hidden;cursor:none;">
+<body id=b>
 <!-- HTML FRAMEWORK https://gist.github.com/xem/a7ff7215375520d89b73beeabd7b16bd -->
 <audio id=sound_beep src=sounds/beep.wav></audio>
 <audio id=sound_roar src=sounds/roar.wav></audio>
 <audio id=sound_explosion src=sounds/explosion.wav></audio>
 <audio id=sound_engine src=sounds/engine.wav loop></audio>
 <canvas id=a></canvas>
+<style>
+#b{margin:0;overflow:hidden;cursor:none;}
+#a{image-rendering:pixelated;height:100vh;width:100vw;font-smooth:never;-webkit-font-smoothing:none;}
+</style>
 <script>
 // Improves performance when checking if (self.production)
 self.production = false

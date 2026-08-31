@@ -30,7 +30,6 @@ let onFrame = tmp => tryCatch(() => {
     frameLogReset()
     recalculateViewport()
     TIME = getTime()
-    initCanvasMatrix()
     clearScreen('#111')
     updateControlsWithGamepad()
 
@@ -76,14 +75,10 @@ let z = 2
 let w = 3
 let TAU = Math.PI * 2
 let FOV = 0.5
-let canvasSize = [0, 0]
-let viewportFocusSize = [0, 0]
-let canvasSmallSideLength = 0
-let canvasLargeSideLength = 0
-let canvasPixelWidth
 let FONT_HEIGHT = 32
 let FONT_WIDTH = 20
-let ERROR_LINE_LENGTH = 60
+let canvasIdealSize = 640
+let canvasPixelWidth = 1/canvasIdealSize
 
 // The game is a big state machine
 let SCREEN_MAIN_MENU = 1
@@ -109,30 +104,28 @@ let cheatsOn = /cheats=1/.test(locationHref)
 let skipStory = /skipstory=1/.test(locationHref)
 let skipToFishy = /skiptofishy=1/.test(locationHref)
 let skipToUnicorn = /skiptounicorn=1/.test(locationHref)
+let passive = /passive=1/.test(locationHref)
 
 let recalculateViewport = () => {
-    canvasSize = [a.width = innerWidth, a.height = innerHeight];
-    canvasSmallSideLength = Math.min(...canvasSize)
-    canvasLargeSideLength = Math.max(...canvasSize)
-    canvasPixelWidth = 1 / canvasSmallSideLength
-    viewportFocusSize = [canvasSmallSideLength, canvasSmallSideLength]
-    ERROR_LINE_LENGTH = Math.floor(canvasSize[0] / FONT_WIDTH)
+    let aspectRatio = innerWidth / innerHeight
 
-    markMut('canvasSize')
-    markMut('canvasSmallSideLength')
-    markMut('canvasLargeSideLength')
-    markMut('canvasPixelWidth')
-    markMut('viewportFocusSize')
-    markMut('ERROR_LINE_LENGTH')
+    if (aspectRatio > 1) {
+        // landscape
+        a.height = canvasIdealSize
+        a.width = canvasIdealSize * aspectRatio
+
+        ctx.scale(canvasIdealSize, canvasIdealSize)
+        ctx.translate((a.width - a.height) / canvasIdealSize / 2, 0)
+    } else {
+        // portrait
+        a.height = canvasIdealSize / aspectRatio
+        a.width = canvasIdealSize
+
+        ctx.scale(canvasIdealSize, canvasIdealSize)
+        ctx.translate(0, (a.height - a.width) / canvasIdealSize / 2)
+    }
 }
 
-let initCanvasMatrix = () => {
-    // landscape
-    if (canvasSize[1] > canvasSize[0]) ctx.translate(0, (canvasLargeSideLength - canvasSmallSideLength) / 2)
-    // portrait
-    else ctx.translate((canvasLargeSideLength - canvasSmallSideLength) / 2, 0)
-    ctx.scale(canvasSmallSideLength, canvasSmallSideLength)
-}
 let errorFont = '32px monospace'
 let screenFont = size => (size * .05) + 'px monospace'
 let screenFontHeight = 0.025
@@ -144,10 +137,9 @@ let fatalError = (err) => {
     if (ERROR) return
     ERROR = err // stop further frames
     console.error(err)
-    var bod = document.body
-    // `a` is the canvas
-    bod.style = "background:red;color:white;white-space:preserve;font:" + errorFont;
-    bod.innerText = errorLines(err).join('\n')
+    // `b` is the ID of the body elem
+    b.style = "background:red;color:white;white-space:preserve;font:" + errorFont;
+    b.innerText = errorLines(err).join('\n')
 }
 let errorLines = (err) => {
     err = (err + '\n' + err.stack).split(/\n/g)
@@ -217,7 +209,7 @@ let frameLogAdvanceXYWidthHeight = (widthMultiplier) => [0.1, (currentTextY += 0
 let _drawText = (lines, x, y, fillStyle='#fff', size = 1) => {
     ctx.fillStyle = fillStyle
     ctx.font = screenFont(size)
-    return lines.map((word, i) => {
+    return lines.forEach((word, i) => {
         ctx.fillText(word, x, y + (0.1 * i))
     })
 }
@@ -236,15 +228,16 @@ let deferRenderCommand = (transform, cb, tmpDist) => (
         && deferLayer3D.push([tmpDist, transform, cb])
 )
 let deferDrawUICommand = (layer, cb) => deferLayerHud.push([layer, cb])
-let UI_LAYER_UNICORN_BAR = 0
-let UI_LAYER_STORY = 1
-let UI_LAYER_FRAME_LOG = 2
+let UI_LAYER_HUD = 0
+let UI_LAYER_UNICORN_BAR = 1
+let UI_LAYER_STORY = 2
+let UI_LAYER_FRAME_LOG = 3
 let undeferRenderCommands = () => {
     // distance sort
     deferLayer3D.sort((a, b) => b[0] - a[0])
-    deferLayer3D.map(a => a[2](a[0]))
+    deferLayer3D.forEach(a => a[2](a[0]))
     deferLayerHud.sort((a, b) => a[0] - b[0])
-    deferLayerHud.map(layerAndCb => layerAndCb[1]())
+    deferLayerHud.forEach(layerAndCb => layerAndCb[1]())
     deferLayer3D.length = deferLayerHud.length = 0
     markMut('deferLayer3D')
     markMut('deferLayerHud')
@@ -294,11 +287,11 @@ let gamepadButtonsToControls = Object.assign([], {
     15: 'r',
 })
 let updateControlsWithGamepad = () =>
-    navigator.getGamepads?.().map(gamepad => {
+    navigator.getGamepads?.().forEach(gamepad => {
         gamepadAxesToControls
-            .map((axisControl, axisIdx) => (gamepadAxes[axisControl] = gamepad?.axes[axisIdx]))
+            .forEach((axisControl, axisIdx) => (gamepadAxes[axisControl] = gamepad?.axes[axisIdx]))
         gamepadButtonsToControls
-            .map((buttonControl, buttonIdx) => (gamepadButtons[buttonControl] = gamepad?.buttons[buttonIdx]?.value))
+            .forEach((buttonControl, buttonIdx) => (gamepadButtons[buttonControl] = gamepad?.buttons[buttonIdx]?.value))
     })
 let gamepadAxes = {}
 let keyControls = {}
@@ -310,16 +303,20 @@ let readControl = key =>
 
 let requestFullscreenForCanvas = (userEvent) =>
     // a is the canvas
-    userEvent && !document.fullscreenElement && a.requestFullscreen?.()?.catch(() => {})
+    !passive && userEvent && !document.fullscreenElement && a.requestFullscreen?.()?.catch(() => {})
 
 let FRAME_INTERVAL = 16
 let FRAME_INTERVAL_MS_INV = 63 // 62.5 actually
 
 let startLoopAndEvents = () => {
+    if (passive) {
+        // don't want to change canvas while running or pause when blurring
+        a.style.cursor = 'default';
+    }
     onclick = onClick
     onkeydown = onKeyDownKeyUp(1)
     onkeyup = onKeyDownKeyUp(0)
-    onblur = stopLoop
+    if (!passive) onblur = stopLoop
     onfocus = runLoop
 
     markMut('loop')
@@ -349,6 +346,7 @@ let stopLoop = () => {
     PAUSE_TIME = getTime()
     clearScreen('#fff', 0.5)
     _drawText(['paused. click to continue'], 0, 0.5, '#fff', /* size */1.5)
+    sound_engine.volume = 0
 }
 
 let onClick = e => (
@@ -394,7 +392,7 @@ let createMenu = (options, i = 0) => {
             sound_beep.play()
         }
         menuHasMovedBefore = menuHasMovedNow
-        return options.map(([optWords, optCb], optI) => {
+        return options.forEach(([optWords, optCb], optI) => {
             if (optI - i) {
                 ctx.globalAlpha = 1
                 return frameLog2('  ' + optWords, 1)

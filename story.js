@@ -20,12 +20,18 @@ let storyWords = lines => lines.map(line => {
 let story = [
     [
         storyWords([
-            'Arrow keys = look around',
-            'Arrow keys = look around',
-            'WASD keys = move',
-            'WASD keys = move',
-            'You can use a gamepad',
-            'You can use a gamepad',
+            'Gamepad is recommended\nplug it in and refresh the page',
+            'On keyboard:\nArrow keys = look around\nWASD keys = move',
+            'Try to land on planet Fishy\nApproach it, but not too fast',
+        ]),
+        () => { },
+        isFirstFrame => {
+            // Because story[0] is a blackout, this waits for its cutscene
+            return !isFirstFrame && !getCurrentWords()
+        }
+    ],
+    [
+        storyWords([
             'BASE: Omega Rainbow 45-U\n    Do you copy? Please respond\n',
             '\n\nYOU: Where am I?',
             'BASE: You really did it this time.\nWhat is your status?',
@@ -43,7 +49,6 @@ let story = [
                 )
             )
             setCameraRotation2(matRotateY(TAU * .32))
-            fuel = 0.1
         },
         (isFirstFrame) => {
             return getConsumedPlanets() // advance the story the first time a planet gets eaten
@@ -91,8 +96,9 @@ let story = [
         storyWords([
             "\nYOU: I think I'm being punished",
             "RADIO: Why?",
-            "\nYOU: This can't be a coincidence!",
-            "\nYOU: I wrote so many horror\n    stories where the monster was\n    a manifestation of my regret,\n    eating everything that\n    I tried to enjoy.",
+            "\nYOU: I've been writing horror.\n    for years.",
+            "\nYOU: I wrote many stories where the\n    monster represents my regret.",
+            "\nYOU: Where the monster eats what I\n    try to enjoy.\n    What brings me peace.",
             "\nYOU: And something like this?\n\n    This can't be a coincidence!",
             "RADIO: I wouldn't worry about it.\n    I'll call the brain engineer\n    for you.",
             "RADIO: You'll talk about this\n    for a while, maybe get some\n    SPACE MEDS.",
@@ -108,6 +114,8 @@ let story = [
     [
         storyWords([
             "\nYOU: I wonder if I'm still alive.",
+            "\n\nYOU: I wonder if this...",
+            "\nYOU: If this is purgatory and...",
             "RADIO: Just one more planet.\n    You'll come home.",
         ]),
         () => {
@@ -145,7 +153,7 @@ let storyState // 0: reset. 1: words
 let STORY_STATE_RESET = 0
 let STORY_STATE_WORDS = 1
 let showWordsIndex
-let showWordsTime = 3
+let showWordsTime = 4
 let showingTheseWordsUntil
 /** returns truthy if should skip frame */
 let advanceStory = (isFirstFrame, [wordsList, initialize, shouldGoToNext] = story[currentStoryBeat]) => {
@@ -173,8 +181,8 @@ let advanceStory = (isFirstFrame, [wordsList, initialize, shouldGoToNext] = stor
         markMut('showingTheseWordsUntil')
         showingTheseWordsUntil = TIME + showWordsTime
     }
-    if (wordsList[showWordsIndex]) {
-        frameLog2(wordsList[showWordsIndex], 1, UI_LAYER_STORY, '#4f5')
+    if (getCurrentWords()) {
+        frameLog2(getCurrentWords(), 1, UI_LAYER_STORY, '#4f5')
     }
 
     if (shouldGoToNext()) {
@@ -186,4 +194,7 @@ let advanceStory = (isFirstFrame, [wordsList, initialize, shouldGoToNext] = stor
         currentStoryBeat++
         storyState = STORY_STATE_RESET;
     }
+
+    return currentStoryBeat == 0 // on the first screen, blackout
 }
+let getCurrentWords = () => story[currentStoryBeat][0][showWordsIndex]

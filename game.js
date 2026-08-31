@@ -291,7 +291,7 @@ let spaceGameStars = Array.from({ length: 1000 }, (_, i) => {
 })
 
 let updateRenderStars = () => (
-    spaceGameStars.map(([ speed, phase , vec ]) => (
+    spaceGameStars.forEach(([ speed, phase , vec ]) => (
         ctx.fillStyle = '#ccc',
         ctx.globalAlpha = 0.3 * (numSinCos(TIME * speed + phase) + 1.0),
         vec = cameraProject2d(vec),
@@ -416,15 +416,16 @@ let getConsumedPlanets = () => {
 
 let getPlanetName = p => p == planetSun ? 'The sun' :  'Planet ' + p[planetName]
 
-let updateRenderPlanets = () => spaceGamePlanets
-    .map((planet) =>
+let updateRenderPlanets = () => {
+    spaceGamePlanets.forEach((planet) =>
         deferRenderCommand(planet[planetTransform], (distance) => {
             let planetScreenRadius = cameraProjectRadiusAtDistance(getPlanetSize(planet), distance)
 
             if (distance < 5000) {
-                ctx.fillStyle = '#fff'
-                ctx.font = screenFont(1)
-                ctx.fillText(' ' + getPlanetName(planet), ...cameraProject2d(planet[planetTransform][0]).map((coord, i) => coord + (i ? screenFontHeight/2 : planetScreenRadius)))
+                _drawText(
+                    [' ' + getPlanetName(planet)],
+                    ...cameraProject2d(planet[planetTransform][0]).map((coord, i) => coord + (i ? screenFontHeight/2 : planetScreenRadius)),
+                )
             }
 
             ctx.fillStyle = planet[planetColor]
@@ -441,6 +442,34 @@ let updateRenderPlanets = () => spaceGamePlanets
             drawDebugCube(planet[planetTransform])
         })
     )
+
+    // Draw a sun direction indicator
+    deferDrawUICommand(UI_LAYER_HUD, () => {
+        let sunPos = planetSun[planetTransform][0]
+        let sunDotCamera = -vecDotVec(vecNormalize(vecSubVec(sunPos, cameraTransform[0])), cameraTransformInv[1][z])
+        // let's render a sun indicator so we see where it is behind camera
+        let projected = cameraProject2d(sunPos)
+        let isLeft
+        if (sunDotCamera > 0.85) return
+ 
+        projected.push(0)
+        projected = vecSubVec(projected, [0.5, 0.5, 0])
+        projected = vecNormalize(projected)
+        isLeft = projected[x] < 0
+        projected = sunDotCamera < 0 ? vecMulNum(projected, -1) : projected
+        projected = vecMulNum(projected, 0.5)
+        projected = vecAddVec(projected, [0.5, 0.5, 0])
+        ctx.fillStyle = '#0f0'
+
+        return _drawText(
+            [isLeft ? '<- Sun' : 'Sun ->'],
+            projected[x] - 0.1 * isLeft,
+            projected[y],
+            '#ccc',
+            0.7
+        )
+    })
+}
 
 /*
 let getCumulativeGravity = () => spaceGamePlanets.reduce((accumulateInertia, [planetTform, _planetColor, planetName]) => {
@@ -549,15 +578,16 @@ let updateControls = (isFirstFrame) => {
     sound_engine.volume = numLerp(sound_engine.volume, propulsionLength * (dampenedVelocity / maxVelocity), propulsionLength > 0.2 ? 0.2 : 0.01)
 }
 
-let fuel
+let fuelSucProgress
+let fuelSucSpeed = 0.3
 let landedOnPlanet
 let landedMenu
 let updateLandedOnPlanet = (storyMode, isFirstFrame) => {
     if (isFirstFrame) {
-        markMut('fuel')
+        markMut('fuelSucProgress')
         markMut('landedMenu')
         markMut('landedOnPlanet')
-        fuel = 1
+        fuelSucProgress = 0
         resetInertia()
 
         landedMenu = createMenu([
@@ -565,12 +595,18 @@ let updateLandedOnPlanet = (storyMode, isFirstFrame) => {
         ])
         return landedOnPlanet = 0
     } else if (!landedOnPlanet) {
+        fuelSucProgress = 0
         return 0
     } else {
         sound_engine.volume = numLerp(sound_engine.volume, 0, 0.1)
         frameLog('FUEL SUC', landedOnPlanet[planetName])
-        frameLog('FUEL LVL', (fuel = numClamp(fuel + 0.0005, 0, 1)))
-        if (fuel > 0.2) landedMenu()
+        frameLog('PROGRESS', (fuelSucProgress.toFixed(0).padStart(3, ' ') + '%'))
+        if (
+            (fuelSucProgress = numClamp(fuelSucProgress + fuelSucSpeed, 0, 100))
+                == 100
+        ) {
+            landedMenu()
+        }
         return 1
     }
 }
@@ -602,7 +638,7 @@ let offblast = storyMode => () => {
 let getIsLandedOrStillOffBlasting = () =>
     landedOnPlanet || TIME - lastOffblast < planetExplosionRenderTime
 
-let speedTooFastToLand = 50
+let speedTooFastToLand = 100
 let updateRenderLanding = () => {
     let speed = vecLength(spaceGameInertia) * FRAME_INTERVAL_MS_INV
     let [closestPlanet, closestPlanetDistance] = spaceGamePlanets.map(a => [a, vecDistance(a[planetTransform][0], cameraTransform[0]) - getPlanetSize(a)]).toSorted((a, b) => (

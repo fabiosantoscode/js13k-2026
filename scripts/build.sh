@@ -3,6 +3,7 @@
 HTML_FILE="index-production.html"
 FILES="prelude.js math.js assets.js engine.js game.js story.js unicorn.js mut-check.js"
 OUT_FILE="build/index.html"
+rm -rf build
 mkdir -p build
 
 COMPRESSOR=cat

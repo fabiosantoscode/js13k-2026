@@ -4,13 +4,13 @@ let unicornSpeedMinimum = 100
 
 /* How many frames behind is the unicorn? */
 let unicornSpeedEasy = 1000
-let unicornAccelEasy = 0.1
+let unicornAccelEasy = 0.05
 
 let unicornSpeedVeryEasy = 1200
 let unicornAccelVeryEasy = 0.01
 
 let unicornSpeedMedium = 800
-let unicornAccelMedium = 0.2
+let unicornAccelMedium = 0.1
 
 let unicornScale = 1000
 let unicornAcceleration = 0
@@ -23,6 +23,7 @@ let setUnicornSpeedAccel = (newSpeed, newAccel) => {
 let unicornInitialPosition
 let resetUnicornToPlanet = planetCenter => {
     unicornInitialPosition = planetCenter
+    unicornRecordedPlayerTform = []
 }
 let updateRenderUnicorn = isFirstFrame => {
     let unicornDotSelf
