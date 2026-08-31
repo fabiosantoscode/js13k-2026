@@ -287,6 +287,9 @@ let vecLerp = (v1, v2, weight) => mapI3(axis => numLerp(v1[axis], v2[axis], weig
 let vecDistance = (v1, v2) => Math.sqrt(
     vecLengthSq(vecSubVec(v1, v2))
 )
+let vecDirection = (v1, v2) => {
+    return vecNormalize(vecSubVec(v2, v1))
+}
 let vecDivNum = (v, n) => vec(mapI3(axis => v[axis] / n))
 // Yoinked and ported from Godot
 // https://github.com/godotengine/godot/blob/3defa2466e4f2c767c347f74620ee86b23282902/core/math/basis.h#L274

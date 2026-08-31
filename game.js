@@ -284,10 +284,13 @@ let range = n => (
     assert(() => n >= 0),
     n-- ? [...range(n), n] : []
 )
-let spaceGameStars = Array.from({ length: 1000 }, (_, i) => {
+let spaceGameStars = Array.from({ length: 1000 }, (_, i, vecCoords) => {
     rngSeed = i + 2 * 33
 
-    return [rng(), rng() ** 2, vecMulNum(vecNormalize([rng(), rng(), rng()]), starDistance)]
+    vecCoords = vecNormalize([rng(), rng(), rng()])
+    vecCoords[y] **= 2
+
+    return [rng(), rng() ** 2, vecMulNum(vecCoords, starDistance)]
 })
 
 let updateRenderStars = () => (
@@ -340,7 +343,7 @@ let initPlanets = () => [
     ],
     [
         tform([
-            [ -1700, 0, 2700 ],
+            [ -2200, 0, 3200 ],
             matScaled(400),
         ]),
         "#eac1e4",
@@ -373,7 +376,7 @@ let initPlanets = () => [
     planetFishy = [
         tform([
             [ 3333, 443, -3333 ],
-            matScaled(99),
+            matScaled(299),
         ]),
         "#443",
         "Fishy"
@@ -455,10 +458,10 @@ let updateRenderPlanets = () => {
         projected.push(0)
         projected = vecSubVec(projected, [0.5, 0.5, 0])
         projected = vecNormalize(projected)
-        isLeft = projected[x] < 0
         projected = sunDotCamera < 0 ? vecMulNum(projected, -1) : projected
         projected = vecMulNum(projected, 0.5)
         projected = vecAddVec(projected, [0.5, 0.5, 0])
+        isLeft = projected[x] < 0.5
         ctx.fillStyle = '#0f0'
 
         return _drawText(
@@ -496,22 +499,22 @@ let getCumulativeGravity = () => spaceGamePlanets.reduce((accumulateInertia, [pl
 */
 
 let dampenVelocity = 0.01
-let accelerationRate = 0.01 + dampenVelocity
-let angularAccelerationRate = 0.05
-let maxVelocity = 5
-let maxAngularVelocitySloppilyMeasured = 0.01
+let accelerationRate = 0.02 + dampenVelocity
+let dampenAngle = 0.0001
+let dampenAngleMul = 0.997
+let angularAccelerationRate = 0.000 + dampenAngle
+let maxVelocity = 10
+let maxAngularVelocity = 0.05
 let spaceGameInertia
-let spaceGameRotationLog
-let spaceGameRotationLogMaxLength = FRAME_INTERVAL_MS_INV // X,Y,Z rotators times 60 FPS
-let spaceGameRotationLogInfluence = (fromEnd) => {
-    assert(() => fromEnd >= -0.01 && fromEnd < 1.01)
-    return numClamp((1 - fromEnd) ** 4, 0, 1) / spaceGameRotationLogMaxLength
-}
+let spaceGameAngularInertia
+let spaceGameAngle
 let resetInertia = () => {
     markMut('spaceGameInertia')
-    markMut('spaceGameRotationLog')
-    spaceGameRotationLog = []
+    markMut('spaceGameAngle')
+    markMut('spaceGameAngularInertia')
     spaceGameInertia = vecZero()
+    spaceGameAngle = vecZero()
+    spaceGameAngularInertia = vecZero()
 }
 let updateControls = (isFirstFrame) => {
     if (isFirstFrame) {
@@ -521,27 +524,27 @@ let updateControls = (isFirstFrame) => {
     assert(() => matIsOrthonormalized(cameraTransformInv[1]))
     assert(() => matIsOrthonormalized(cameraTransform[1]))
 
-    let rotations = vecLimitLength([
+    let rotations = vecMulNum(vecLimitLength([
         readControlNegPos('p', 'P'), // P-itch
         readControlNegPos('c', 'C'), // yaw (clockwise/counterclockwise)
-        readControlNegPos('S', 's'), // roll (S-pin)
-    ], 1)
+        0,
+        // readControlNegPos('S', 's'), // roll (S-pin)
+    ], 1), angularAccelerationRate)
+    let rotationsLength = vecLength(rotations)
 
-    spaceGameRotationLog.push(rotations)
-    if (spaceGameRotationLog.length >= spaceGameRotationLogMaxLength) spaceGameRotationLog.shift()
+    spaceGameAngularInertia = vecLimitLength(vecAddVec(spaceGameAngularInertia, rotations), maxAngularVelocity)
+    spaceGameAngle = vecAddVec(spaceGameAngle, spaceGameAngularInertia)
 
-    let reducedRotation = spaceGameRotationLog.reduce((rotationAccumulator, rotations, i) => {
-        let influenceAmount =
-            angularAccelerationRate *
-            spaceGameRotationLogInfluence(1 - (i / spaceGameRotationLogMaxLength))
-        let rotationMatrices = [
-            matFromAxisAngle(cameraTransformInv[1][x], rotations[x] * influenceAmount),
-            matFromAxisAngle(cameraTransformInv[1][y], rotations[y] * influenceAmount),
-            matFromAxisAngle(cameraTransformInv[1][z], rotations[z] * influenceAmount),
-        ]
-        return rotationMatrices.reduce(matTransformMat, rotationAccumulator)
-    }, matIdentity())
-    setCameraRotation2(matOrthonormalize(reducedRotation))
+    // Rotate the camera!
+    setCameraRotation(spaceGameAngle[0], spaceGameAngle[1])
+
+    spaceGameAngularInertia =
+        /*vecDistance(spaceGameAngularInertia, vecZero()) < angularDecelerationExp
+        && rotationsLength < 0.001
+            ? vecMulNum(spaceGameAngularInertia, 0.8)
+            : */
+        // vecMulNum(vecMoveToward(spaceGameAngularInertia, vecZero(), dampenAngle), dampenAngleMul)
+        vecMulNum(spaceGameAngularInertia, dampenAngleMul)
 
     let directionX = cameraTransformInv[1][x]
     let directionY = cameraTransformInv[1][y]
@@ -611,7 +614,7 @@ let updateLandedOnPlanet = (storyMode, isFirstFrame) => {
     }
 }
 
-let offblastSpeed = 5
+let offblastSpeed = 3
 let lastOffblast = 0
 let offblast = storyMode => () => {
     let planetCenter = landedOnPlanet[planetTransform][0]
@@ -638,12 +641,14 @@ let offblast = storyMode => () => {
 let getIsLandedOrStillOffBlasting = () =>
     landedOnPlanet || TIME - lastOffblast < planetExplosionRenderTime
 
+let distanceCloseEnoughToLand = 2 // times planet radius
 let speedTooFastToLand = 100
 let updateRenderLanding = () => {
     let speed = vecLength(spaceGameInertia) * FRAME_INTERVAL_MS_INV
     let [closestPlanet, closestPlanetDistance] = spaceGamePlanets.map(a => [a, vecDistance(a[planetTransform][0], cameraTransform[0]) - getPlanetSize(a)]).toSorted((a, b) => (
         a[1] - b[1]
     ))[0]
+    let closestPlanetSize = getPlanetSize(closestPlanet)
     let message
     let towardsPlanet = vecSubVec(closestPlanet[planetTransform][0], cameraTransform[0])
     let dotTowardsPlanet = vecLengthSq(spaceGameInertia) > 0.01
@@ -656,6 +661,7 @@ let updateRenderLanding = () => {
     if (dotTowardsPlanet < 0 || closestPlanetDistance > 1000) return
 
     frameLog('speed', speed.toFixed(2) + 'km/s')
+    frameLog('distance', closestPlanetDistance.toFixed(2) + 'km')
 
     if (closestPlanet == planetSun) {
         frameLog('autopilot', 'can\'t land on the sun')
@@ -666,7 +672,7 @@ let updateRenderLanding = () => {
     if (
         closestPlanetDistance < 0
         // Easy-land: if not too fast, land earlier
-        || closestPlanetDistance < 150 && speed < speedTooFastToLand
+        || closestPlanetDistance < closestPlanetSize * distanceCloseEnoughToLand && speed < speedTooFastToLand
     ) {
         // When going away from planet, do not land
         if (dotTowardsPlanet > 0) {

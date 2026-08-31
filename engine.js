@@ -156,11 +156,11 @@ let setCameraRotation = (rotationX, rotationY) => {
     num(rotationY), num(rotationX)
     cameraTransform[1] = cameraTransformInv[1] = matIdentity()
 
-    cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateY(-rotationY))
-    cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateX(-rotationX))
+    cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateY(rotationY))
+    cameraTransform[1] = matTransformMat(cameraTransform[1], matRotateX(rotationX))
 
-    cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateX(rotationX))
-    return cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateY(rotationY))
+    cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateX(-rotationX))
+    return cameraTransformInv[1] = matTransformMat(cameraTransformInv[1], matRotateY(-rotationY))
 }
 let setCameraRotation2 = (rotation) => {
     mat(rotation)
@@ -259,25 +259,20 @@ let keyCodesToControls = {
     37: 'C', // arrow left turn counter-clockwise
     39: 'c', // arrow right turn clockwise
     // roll (Screw): Z and C
-    90: 's',
-    67: 'S',
+    // 90: 's',
+    // 67: 'S',
     // B stands for "bress the button in the UI"
     13: 'B',
     32: 'B',
 }
 // https://w3c.github.io/gamepad/#remapping
-let gamepadAxesToControls = [
-    'r',
-    'd',
-    'c',
-    'p',
-]
+let gamepadAxesToControls = ['r', 'd', 'c', 'p']
 let gamepadButtonsToControls = Object.assign([], {
     // Cross (bottom face button)
     0: 'B',
     // L1, R1
-    4: 's',
-    5: 'S',
+    // 4: 's',
+    // 5: 'S',
     6: 'U',
     7: 'D',
     // D-pad
