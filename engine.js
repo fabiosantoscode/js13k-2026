@@ -11,6 +11,7 @@ let main = self.main = () => tryCatch(() => {
     resetToGameStart()
     prepareAssets()
     startLoopAndEvents()
+    globalThis.Wavedash?.init?.()
 }, fatalError)
 
 let isFirstFrameOfThisScreen // is this the first frame of the screen (IE is it != previousScreen)
